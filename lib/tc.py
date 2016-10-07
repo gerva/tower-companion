@@ -311,7 +311,7 @@ def monitor(job_id, config, output_format):
         # now all the new lines have been printed, set prev_req to output
         prev_output = output
         result = job_id_status(job_id)
-        complete = result['status'] in ('successful', 'canceled')
+        complete = result['status'] in ('successful', 'canceled', 'failed')
 
     # print some other information
     download_url = _get_tower_job_url(job_id, config, 'txt_download')
