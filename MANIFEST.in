@@ -3,3 +3,6 @@ include LICENSE.txt
 
 # Include the README.md
 include README.md
+
+# Include CHANGELOG.txt
+include CHANGELOG.txt

@@ -1,8 +1,8 @@
 ## 2016-10-07 0.1.2
 
-* Create a docker container to run the Tower Companion
-* Docker should get the version from PiPy
-* monitor does not terminate if the job fails
+* Create a docker container to run the Tower Companion (tx michaelgaida) #1
+* Docker should get the version from PiPy (tx michaelgaida) #2
+* monitor does not terminate if the job fails #8
 
 
 ## 2016-10-07 0.1.0
