@@ -20,7 +20,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 setup(
     name='tower-companion',
 
-    version='0.1.1',
+    version='0.1.2',
     description='tower companion',
     long_description=long_description,
 
