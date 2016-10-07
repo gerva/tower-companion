@@ -1,0 +1,10 @@
+version: '2'
+services:
+  runner:
+    build: .
+    entrypoint: kick_and_monitor --template-name
+    environment:
+      - TC_USERNAME=ansibleuser
+      - TC_PASSWORD=ansiblepassword
+      - TC_HOST=ansiblehost.com
+      - TC_VERIFY_SSL=false
