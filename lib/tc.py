@@ -33,7 +33,7 @@ SLEEP_INTERVAL = 1.0  # sleep interval
 # content:
 #
 # [general]
-# host = mic-tst-itass01.msgreen.dom
+# host = myansibletower.com
 # username = jdoe
 # password = super_secret
 # verify_ssl = false
@@ -106,6 +106,9 @@ def overwrite_config():
     host = os.environ.get('TC_HOST')
     if host:
         set_config('host', host)
+    verify_ssl = os.environ.get('TC_VERIFY_SSL')
+    if verify_ssl:
+        set_config('verify_ssl', verify_ssl)
 
 
 def get_config(config_file=CONFIG_FILE):
@@ -119,11 +122,11 @@ def get_config(config_file=CONFIG_FILE):
         config (ConfigParser): a nice convenient way to carry your configuration
             with you. Believe me it's the new black.
     """
+    overwrite_config()
     if not os.path.isfile(config_file):
         raise BadKarma('No configuration set. Refusing to proceed any further')
     config = ConfigParser()
     config.read(config_file)
-    overwrite_config()
     if config.has_option('general', 'reckless_mode'):
         if config.get('general', 'reckless_mode') == 'yes':
             reckless_mode()
