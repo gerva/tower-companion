@@ -232,6 +232,52 @@ def kick(template_id, extra_vars):
     return job['id']
 
 
+def ad_hoc(inventory, machine_credential, module_name, job_type, module_args, limit, job_explanation, verbose, become):
+    """
+    Starts a ad hoc job in ansible tower
+    Args:
+        inventory (str): Inventory to run on
+        machine_credential (str): SSH credentials name
+        module_name (str): Ansible module to run
+        job_type (str): Job type to run. options: run, check
+        module_args (str): Arguments for the selected module
+        limit (str): Limit to hosts
+        job_explanation (str): Job description
+        verbose (bool): Verbose output
+        become (bool): Bocome root
+    Returns:
+        job_id (int): id of the triggered job
+
+    Note::
+        there's no need to pass the configuration as a parameter. We are calling
+        the tower-cli command that knows where to get its configuration.
+        hint: it's from CONFIG_FILE
+    """
+    cmd = [which('tower-cli'),
+           'ad_hoc',
+           'launch',
+           '-i', inventory,
+           '--machine-credential', machine_credential,
+           '--module-name', module_name,
+           '--job-type', job_type,
+           '--module-args', module_args,
+           '--limit', limit,
+           '--job-explanation', job_explanation,
+           '--format=json']
+
+    if verbose:
+        cmd.append('--versbose')
+    if become:
+        cmd.append('--become')
+
+    tower = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # We can block here, it takes a split of a second to ask ansible tower to
+    # start a specific job.
+    tower.wait()
+    job = json.load(tower.stdout)
+    return job['id']
+
+
 def _get_tower_job_url(job_id, config, output_format):
     """
     Returns the url
@@ -404,6 +450,40 @@ def cli_kick_and_monitor(template_name, extra_vars, output_format):
         _validate_extra_vars(extra_vars)
         template_id = get_template_id_from_name(template_name)
         job_id = kick(template_id=template_id, extra_vars=extra_vars)
+        print('job id: {0}'.format(job_id))
+        success = monitor(job_id, config, output_format=output_format)
+        if not success:
+            sys.exit(1)
+    except BadKarma as error:
+        print("Execution Error: {0}".format(error))
+        sys.exit(1)
+
+
+@click.command()
+@click.option('--inventory', help='Inventory to run on', required=True)
+@click.option('--machine-credential', help='SSH credentials name', required=True)
+@click.option('--module-name', help='Ansible module to run', required=True)
+@click.option('--job-type', type=click.Choice(['run', 'check']),
+              help='Type of job so execute', default='run')
+@click.option('--module-args', help='Arguments for the selected module', type=str, default='')
+@click.option('--limit', help='Limit to hosts', type=str, default='')
+@click.option('--job-explanation', help='Job description', type=str, default='')
+@click.option('--verbose', help='', is_flag=True)
+@click.option('--become', help='', is_flag=True)
+@click.option('--output-format',
+              type=click.Choice(['ansi', 'txt']),
+              default='ansi',
+              help='output format')
+def cli_ad_hoc_and_monitor(inventory, machine_credential, module_name, job_type, module_args, limit, job_explanation, verbose, become, output_format):
+    """
+    Trigger an ansible tower ad hoc job and monitor its execution.
+    In case of error it returns a bad exit code.
+    """
+    try:
+        config = get_config()
+        _validate_extra_vars(extra_vars)
+        template_id = get_template_id_from_name(template_name)
+        job_id = ad_hoc(inventory, machine_credential, module_name, job_type, module_args, limit, job_explanation, verbose, become)
         print('job id: {0}'.format(job_id))
         success = monitor(job_id, config, output_format=output_format)
         if not success:

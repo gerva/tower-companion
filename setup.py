@@ -20,7 +20,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 setup(
     name='tower-companion',
 
-    version='0.1.2',
+    version='0.1.3',
     description='tower companion',
     long_description=long_description,
 
@@ -82,6 +82,7 @@ setup(
             'kick_and_monitor=lib.tc:cli_kick_and_monitor',
             'monitor=lib.tc:cli_monitor',
             'kick=lib.tc:cli_kick'
+            'ad_hoc_and_monitor=lib.tc:cli_ad_hoc_and_monitor',
         ],
     },
 )
