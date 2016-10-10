@@ -1,3 +1,7 @@
+## 2016-10-10 0.1.3
+
+* Implemented the function to fire and monitor Ad Hoc commands (tx michaelgaida) #14
+
 ## 2016-10-07 0.1.2
 
 * Create a docker container to run the Tower Companion (tx michaelgaida) #1
