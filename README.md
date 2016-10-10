@@ -12,6 +12,7 @@ Tower companion provides three command line scripts:
 -  [kick](#kick)
 -  [monitor](#monitor)
 -  [kick_and_monitor](#kick_and_monitor)
+-  [ad_hoc_and_monitor](#ad_hoc_and_monitor)
 
 
 Installation
@@ -174,3 +175,35 @@ example:
 
     you can download the full output from:
     https://<ansible tower instance>/api/v1/jobs/12346/stdout/?format=txt_download
+
+### <a name="ad_hoc_and_monitor"></a>
+ad_hoc_and_monitor
+----------------
+You use this ad-hoc functionality, if you want to fire a command on a bunch of
+selected machines or on a single machine. Like for the kick_and_monitor the
+output will be printed in real time
+
+Params:
+
+-  inventory: Inventory to run on
+-  machine_credential: SSH credentials name
+-  module_name: Ansible module to run
+-  job_type: Type of job so execute
+-  module_args: Arguments for the selected module
+-  limit: Limit to hosts
+-  job_explanation: Job description
+-  verbose: Verbose mode
+-  become: Become a superuser
+-  output-format: can be txt or ansi. Use 'ansi' (default) for a colorful output
+
+Returns:
+
+-  exit code 0 if the job comleted without errors
+-  exit code 1 if any issues
+
+usage:
+
+	Usage: ad_hoc_and_monitor [OPTIONS]
+
+
+example:
