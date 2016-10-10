@@ -12,6 +12,7 @@ Tower companion provides three command line scripts:
 -  [kick](#kick)
 -  [monitor](#monitor)
 -  [kick_and_monitor](#kick_and_monitor)
+-  [ad_hoc](#ad_hoc)
 -  [ad_hoc_and_monitor](#ad_hoc_and_monitor)
 
 
@@ -176,6 +177,53 @@ example:
     you can download the full output from:
     https://<ansible tower instance>/api/v1/jobs/12346/stdout/?format=txt_download
 
+### <a name="ad_hoc"></a>
+ad_hoc
+----
+This script starts an Ansible tower ad-hoc command and returns immediatly.
+
+Params:
+
+-  inventory: Inventory to run on
+-  machine_credential: SSH credentials name
+-  module_name: Ansible module to run
+-  job_type: Type of job so execute
+-  module_args: Arguments for the selected module
+-  limit: Limit to hosts
+-  job_explanation: Job description
+-  verbose: Verbose mode
+-  become: Become a superuser
+
+Returns:
+
+-  exit code 0 if the job template has been started successfully
+-  exit code 1 if any issues
+
+usage:
+
+ad_hoc --help
+Usage: ad_hoc [OPTIONS]
+
+  Trigger an ansible tower ad hoc job and monitor its execution. In case of
+  error it returns a bad exit code.
+
+Options:
+  --inventory TEXT           Inventory to run on  [required]
+  --machine-credential TEXT  SSH credentials name  [required]
+  --module-name TEXT         Ansible module to run  [required]
+  --job-type [run|check]     Type of job so execute
+  --module-args TEXT         Arguments for the selected module
+  --limit TEXT               Limit to hosts
+  --job-explanation TEXT     Job description
+  --verbose                  Verbose mode
+  --become                   Become root
+  --help                     Show this message and exit.
+example:
+
+    $ ad_hoc --inventory Default --machine-credential "Ansible Machine SSH" --module-name command --module-args "ls -l /" --limit mic-tst-itass01 --job-explanation "This is the first job from ad_hoc tower companion"
+    Started job: 20894
+
+
 ### <a name="ad_hoc_and_monitor"></a>
 ad_hoc_and_monitor
 ----------------
@@ -236,50 +284,3 @@ example:
 
     you can download the full output from:
     https://mic-tst-itass01.msgreen.dom/api/v1/jobs/20895/stdout/?format=txt_download
-
-
-### <a name="ad_hoc"></a>
-ad_hoc
-----
-This script starts an Ansible tower ad-hoc command and returns immediatly.
-
-Params:
-
--  inventory: Inventory to run on
--  machine_credential: SSH credentials name
--  module_name: Ansible module to run
--  job_type: Type of job so execute
--  module_args: Arguments for the selected module
--  limit: Limit to hosts
--  job_explanation: Job description
--  verbose: Verbose mode
--  become: Become a superuser
-
-Returns:
-
--  exit code 0 if the job template has been started successfully
--  exit code 1 if any issues
-
-usage:
-
-ad_hoc --help
-Usage: ad_hoc [OPTIONS]
-
-  Trigger an ansible tower ad hoc job and monitor its execution. In case of
-  error it returns a bad exit code.
-
-Options:
-  --inventory TEXT           Inventory to run on  [required]
-  --machine-credential TEXT  SSH credentials name  [required]
-  --module-name TEXT         Ansible module to run  [required]
-  --job-type [run|check]     Type of job so execute
-  --module-args TEXT         Arguments for the selected module
-  --limit TEXT               Limit to hosts
-  --job-explanation TEXT     Job description
-  --verbose                  Verbose mode
-  --become                   Become root
-  --help                     Show this message and exit.
-example:
-
-    $ ad_hoc --inventory Default --machine-credential "Ansible Machine SSH" --module-name command --module-args "ls -l /" --limit mic-tst-itass01 --job-explanation "This is the first job from ad_hoc tower companion"
-    Started job: 20894
