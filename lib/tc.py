@@ -288,24 +288,38 @@ def _get_tower_job_url(job_id, config, output_format):
                                                                    output_format)
 
 
+def _get_tower_ad_hoc_url(job_id, config, output_format):
+    """
+    Returns the url
+    """
+    host = config.get('general', 'host')
+    return 'https://{0}/api/v1/ad_hoc_commands/{1}/stdout/?format={2}'.format(host,
+                                                                   job_id,
+                                                                   output_format)
+
+
 def job_id_status(job_id):
     """
     tower-cli job status 17571
     """
-    cmd = [which('tower-cli'),
-           'job',
-           'status',
-           str(job_id),
-           '--format=json']
-    tower = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    # We can block here, it takes a split of a second to ask ansible tower to
-    # start a specific job.
-    tower.wait()
-    try:
-        return json.load(tower.stdout)
-    except ValueError:
-        msg = "Did not find {0} template".format(job_id)
-        raise BadKarma(msg)
+    jobtypes = ['job', 'ad_hoc']
+    for jobtype in jobtypes:
+        cmd = [which('tower-cli'),
+               jobtype,
+               'status',
+               str(job_id),
+               '--format=json']
+        tower = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        # We can block here, it takes a split of a second to ask ansible tower to
+        # start a specific job.
+        tower.wait()
+        try:
+            return json.load(tower.stdout)
+        except ValueError:
+            continue
+
+    msg = "Did not find {0} template".format(job_id)
+    raise BadKarma(msg)
 
 
 def _get_job_output(job_id, config, output_format):
@@ -314,14 +328,22 @@ def _get_job_output(job_id, config, output_format):
     verify_ssl = True
     if config.has_option('general', 'verify_ssl'):
         verify_ssl = config.getboolean('general', 'verify_ssl')
-    job_url = _get_tower_job_url(job_id, config, output_format)
-    request = requests.get(job_url, auth=(username, password),
-                           verify=verify_ssl, allow_redirects=True, stream=True)
-    if not request.status_code == requests.codes.ok:
-        msg = "Error getting {0} - return code: {1}".format(job_url,
-                                                            request.status_code)
-        raise BadKarma(msg)
-    return request.text
+
+    url_builders = [_get_tower_job_url, _get_tower_ad_hoc_url]
+    for url_builder in url_builders:
+        job_url = url_builder(job_id, config, output_format)
+        request = requests.get(job_url, auth=(username, password),
+                               verify=verify_ssl, allow_redirects=True, stream=True)
+        if request.status_code == requests.codes.ok:
+            return request.text
+        else:
+            continue
+
+    # Did not find the job or ad_hoc command...
+    msg = "Error getting {0} - return code: {1}".format(job_url,
+                                                        request.status_code)
+    raise BadKarma(msg)
+
 
 
 def monitor(job_id, config, output_format):
@@ -468,8 +490,8 @@ def cli_kick_and_monitor(template_name, extra_vars, output_format):
 @click.option('--module-args', help='Arguments for the selected module', type=str, default='')
 @click.option('--limit', help='Limit to hosts', type=str, default='')
 @click.option('--job-explanation', help='Job description', type=str, default='')
-@click.option('--verbose', help='', is_flag=True)
-@click.option('--become', help='', is_flag=True)
+@click.option('--verbose', help='Verbose mode', is_flag=True)
+@click.option('--become', help='Become root', is_flag=True)
 @click.option('--output-format',
               type=click.Choice(['ansi', 'txt']),
               default='ansi',
@@ -481,13 +503,35 @@ def cli_ad_hoc_and_monitor(inventory, machine_credential, module_name, job_type,
     """
     try:
         config = get_config()
-        _validate_extra_vars(extra_vars)
-        template_id = get_template_id_from_name(template_name)
         job_id = ad_hoc(inventory, machine_credential, module_name, job_type, module_args, limit, job_explanation, verbose, become)
         print('job id: {0}'.format(job_id))
         success = monitor(job_id, config, output_format=output_format)
         if not success:
             sys.exit(1)
+    except BadKarma as error:
+        print("Execution Error: {0}".format(error))
+        sys.exit(1)
+
+@click.command()
+@click.option('--inventory', help='Inventory to run on', required=True)
+@click.option('--machine-credential', help='SSH credentials name', required=True)
+@click.option('--module-name', help='Ansible module to run', required=True)
+@click.option('--job-type', type=click.Choice(['run', 'check']),
+              help='Type of job so execute', default='run')
+@click.option('--module-args', help='Arguments for the selected module', type=str, default='')
+@click.option('--limit', help='Limit to hosts', type=str, default='')
+@click.option('--job-explanation', help='Job description', type=str, default='')
+@click.option('--verbose', help='Verbose mode', is_flag=True)
+@click.option('--become', help='Become root', is_flag=True)
+def cli_ad_hoc(inventory, machine_credential, module_name, job_type, module_args, limit, job_explanation, verbose, become):
+    """
+    Trigger an ansible tower ad hoc job and monitor its execution.
+    In case of error it returns a bad exit code.
+    """
+    try:
+        config = get_config()
+        job_id = ad_hoc(inventory, machine_credential, module_name, job_type, module_args, limit, job_explanation, verbose, become)
+        print('Started job: {0}'.format(job_id))
     except BadKarma as error:
         print("Execution Error: {0}".format(error))
         sys.exit(1)

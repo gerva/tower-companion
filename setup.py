@@ -81,8 +81,9 @@ setup(
         'console_scripts': [
             'kick_and_monitor=lib.tc:cli_kick_and_monitor',
             'monitor=lib.tc:cli_monitor',
-            'kick=lib.tc:cli_kick'
+            'kick=lib.tc:cli_kick',
             'ad_hoc_and_monitor=lib.tc:cli_ad_hoc_and_monitor',
+            'ad_hoc=lib.tc:cli_ad_hoc',
         ],
     },
 )
