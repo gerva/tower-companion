@@ -169,7 +169,7 @@ def get_template_id_from_name(template_name):
     # start a specific job.
     tower.wait()
     try:
-        result = json.load(tower.stdout)
+        result = get_json_from_stdout(tower.stdout)
         return result['id']
     except ValueError:
         msg = "Did not find {0} template".format(template_name)
@@ -205,6 +205,28 @@ def _validate_extra_vars(extra_vars):
         raise BadKarma(msg)
 
 
+def get_json_from_stdout(stdout):
+    """
+    Take the output of stdout as provided by subprocess.Popen and transform it
+    to a json object - The reason of this funciton is because in python3 stdout
+    will be byte object not a string and json.load() do not like it
+
+    Args:
+        stdout (): as provided by subprocess.Popen
+
+    Returns:
+        json object
+
+    Raises:
+        BadKarma
+
+    """
+    try:
+        return json.loads(stdout.read().decode('utf-8'))
+    except json.decoder.JSONDecodeError as error:
+        raise BadKarma(error)
+
+
 def kick(template_id, extra_vars):
     """
     Starts a job in ansible tower
@@ -228,7 +250,7 @@ def kick(template_id, extra_vars):
     # We can block here, it takes a split of a second to ask ansible tower to
     # start a specific job.
     tower.wait()
-    job = json.load(tower.stdout)
+    job = get_json_from_stdout(tower.stdout)
     return job['id']
 
 
@@ -274,7 +296,7 @@ def ad_hoc(inventory, machine_credential, module_name, job_type, module_args, li
     # We can block here, it takes a split of a second to ask ansible tower to
     # start a specific job.
     tower.wait()
-    job = json.load(tower.stdout)
+    job = get_json_from_stdout(tower.stdout)
     return job['id']
 
 
@@ -293,9 +315,8 @@ def _get_tower_ad_hoc_url(job_id, config, output_format):
     Returns the url
     """
     host = config.get('general', 'host')
-    return 'https://{0}/api/v1/ad_hoc_commands/{1}/stdout/?format={2}'.format(host,
-                                                                   job_id,
-                                                                   output_format)
+    return 'https://{0}/api/v1/ad_hoc_commands/{1}/stdout/?format={2}'.format(
+        host, job_id, output_format)
 
 
 def job_id_status(job_id):
@@ -314,7 +335,7 @@ def job_id_status(job_id):
         # start a specific job.
         tower.wait()
         try:
-            return json.load(tower.stdout)
+            return get_json_from_stdout(tower.stdout)
         except ValueError:
             continue
 
@@ -343,7 +364,6 @@ def _get_job_output(job_id, config, output_format):
     msg = "Error getting {0} - return code: {1}".format(job_url,
                                                         request.status_code)
     raise BadKarma(msg)
-
 
 
 def monitor(job_id, config, output_format):
@@ -511,6 +531,7 @@ def cli_ad_hoc_and_monitor(inventory, machine_credential, module_name, job_type,
     except BadKarma as error:
         print("Execution Error: {0}".format(error))
         sys.exit(1)
+
 
 @click.command()
 @click.option('--inventory', help='Inventory to run on', required=True)
