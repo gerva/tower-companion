@@ -4,29 +4,22 @@ Start and monitor ansilbe tower jobs from the command line, in real time.
 Grab your pop corns.
 """
 from __future__ import print_function
-import click
+from __future__ import absolute_import
 import json
-import logging
 import os
-import requests
 import subprocess
 import sys
-import yaml
 from time import sleep
-import requests.packages.urllib3 as urllib3
-
-
-# in python 3, ConfigParser has been renamed configparser
-try:
-    from ConfigParser import ConfigParser
-except ImportError:
-    # python 3
-    from configparser import ConfigParser
-
+import click
+import requests
+import yaml
+from .utils import BadKarma
+from .utils import which
+from .configuration import get_config
 
 # some constants
-CONFIG_FILE = os.path.expanduser('~/.tower_cli.cfg')
 SLEEP_INTERVAL = 1.0  # sleep interval
+SUCCESS = 1
 
 # more about the configuration file:
 # this script expects you have a file called ~/.tower_cli.cfg with the following
@@ -37,115 +30,6 @@ SLEEP_INTERVAL = 1.0  # sleep interval
 # username = jdoe
 # password = super_secret
 # verify_ssl = false
-
-
-class BadKarma(Exception):
-    """
-    What goes around comes around
-    """
-    pass
-
-
-def which(executable):
-    """
-    A poor man replacement for the 'which' command
-    It returns a string with the path of executable.
-    It returns an empty string if executable is not found
-    Also this function is not nice at all. Ask it to find something it does not
-    exist and it will give you a BadKarma exception
-
-    Args:
-        executable (str): name of the executable
-
-    Returns:
-        (str): executable path
-
-    Raises:
-        BadKarma
-    """
-    for path in os.environ['PATH'].split(':'):
-        full_path = os.path.join(path, executable)
-        if os.path.isfile(full_path):
-            return full_path
-    msg = "{0} is not in your path. Giving up. Have a good day".format(
-        executable)
-    raise BadKarma(msg)
-
-
-def set_config(key, value):
-    """
-    Calls tower-cli and overwrite the given key with the given value in the
-    configuration file
-    Args:
-        key (str): configuration key to update
-        value (str): configuration value to update
-    """
-    cmd = [which('tower-cli'),
-           'config',
-           key,
-           value]
-    tower = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    tower.wait()
-    if tower.returncode != 0:
-        raise BadKarma(tower.stderr)
-    else:
-        print("Configuration for {0} overwritten".format(key))
-
-
-def overwrite_config():
-    """
-    Search the environment for local set configuration. If values set in the
-    environment variables then overwrite the tower-cli config with these values
-    """
-    username = os.environ.get('TC_USERNAME')
-    if username:
-        set_config('username', username)
-    password = os.environ.get('TC_PASSWORD')
-    if password:
-        set_config('password', password)
-    host = os.environ.get('TC_HOST')
-    if host:
-        set_config('host', host)
-    verify_ssl = os.environ.get('TC_VERIFY_SSL')
-    if verify_ssl:
-        set_config('verify_ssl', verify_ssl)
-
-
-def get_config(config_file=CONFIG_FILE):
-    """
-    Returns a configuration object.
-    It reads the default tower_cli.cfg file
-    Args:
-        config_file (str): configuration file, use the tower-cli default
-            configuration.
-    Returns:
-        config (ConfigParser): a nice convenient way to carry your configuration
-            with you. Believe me it's the new black.
-    """
-    overwrite_config()
-    if not os.path.isfile(config_file):
-        raise BadKarma('No configuration set. Refusing to proceed any further')
-    config = ConfigParser()
-    config.read(config_file)
-    if config.has_option('general', 'reckless_mode'):
-        if config.get('general', 'reckless_mode') == 'yes':
-            reckless_mode()
-    return config
-
-
-def reckless_mode():
-    """
-    Live fast, die young, get hacked and cry.
-    If you're here, you have bad SSL certficates
-    urllib3, used by requests, clobbers the output with a lot of SSL warnings
-    the following lines, just disables the warning messages.
-
-    Enable this only if you're a bad person.
-    """
-    urllib3_logger = logging.getLogger('urllib3')
-    urllib3_logger.setLevel(logging.CRITICAL)
-    urllib3.disable_warnings()
-
 
 def get_template_id_from_name(template_name):
     """
@@ -254,7 +138,8 @@ def kick(template_id, extra_vars):
     return job['id']
 
 
-def ad_hoc(inventory, machine_credential, module_name, job_type, module_args, limit, job_explanation, verbose, become):
+def ad_hoc(inventory, machine_credential, module_name, job_type, module_args,
+           limit, job_explanation, verbose, become):
     """
     Starts a ad hoc job in ansible tower
     Args:
@@ -409,13 +294,20 @@ def monitor(job_id, config, output_format):
     if result['failed']:
         msg = 'job id {0}: ended with errors'.format(job_id)
         raise BadKarma(msg)
+    return SUCCESS
 
 
 def is_debug_mode():
+    """
+    Checks if the debug mode is set
+    """
     return 'DEBUG_MODE' in os.environ
 
 
 def debug_me():
+    """
+    Prints the debug outbut
+    """
     cmd = [which('tower-cli'), 'version', ]
     tower = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     tower.wait()
@@ -516,14 +408,17 @@ def cli_kick_and_monitor(template_name, extra_vars, output_format):
               type=click.Choice(['ansi', 'txt']),
               default='ansi',
               help='output format')
-def cli_ad_hoc_and_monitor(inventory, machine_credential, module_name, job_type, module_args, limit, job_explanation, verbose, become, output_format):
+def cli_ad_hoc_and_monitor(inventory, machine_credential, module_name,
+                           job_type, module_args, limit, job_explanation,
+                           verbose, become, output_format):
     """
     Trigger an ansible tower ad hoc job and monitor its execution.
     In case of error it returns a bad exit code.
     """
     try:
         config = get_config()
-        job_id = ad_hoc(inventory, machine_credential, module_name, job_type, module_args, limit, job_explanation, verbose, become)
+        job_id = ad_hoc(inventory, machine_credential, module_name, job_type,
+                        module_args, limit, job_explanation, verbose, become)
         print('job id: {0}'.format(job_id))
         success = monitor(job_id, config, output_format=output_format)
         if not success:
@@ -544,14 +439,16 @@ def cli_ad_hoc_and_monitor(inventory, machine_credential, module_name, job_type,
 @click.option('--job-explanation', help='Job description', type=str, default='')
 @click.option('--verbose', help='Verbose mode', is_flag=True)
 @click.option('--become', help='Become root', is_flag=True)
-def cli_ad_hoc(inventory, machine_credential, module_name, job_type, module_args, limit, job_explanation, verbose, become):
+def cli_ad_hoc(inventory, machine_credential, module_name, job_type,
+               module_args, limit, job_explanation, verbose, become):
     """
     Trigger an ansible tower ad hoc job and monitor its execution.
     In case of error it returns a bad exit code.
     """
     try:
-        config = get_config()
-        job_id = ad_hoc(inventory, machine_credential, module_name, job_type, module_args, limit, job_explanation, verbose, become)
+        get_config()
+        job_id = ad_hoc(inventory, machine_credential, module_name, job_type,
+                        module_args, limit, job_explanation, verbose, become)
         print('Started job: {0}'.format(job_id))
     except BadKarma as error:
         print("Execution Error: {0}".format(error))

@@ -8,3 +8,4 @@ services:
       - TC_PASSWORD=ansiblepassword
       - TC_HOST=ansiblehost.com
       - TC_VERIFY_SSL=false
+      - TC_RECKLESS_MODE=yes
