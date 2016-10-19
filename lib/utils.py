@@ -2,13 +2,16 @@
 """
 Collection of utils for the tower companion
 """
+from __future__ import print_function
 import os
+
 
 class BadKarma(Exception):
     """
     What goes around comes around
     """
     pass
+
 
 def which(executable):
     """

@@ -1,141 +1,166 @@
-#!/usr/bin/env python
 """
 Configuration handling for tower companion
 """
-from __future__ import print_function
-from __future__ import absolute_import
-import subprocess
+from __future__ import print_function, absolute_import
 import os
-import logging
 import requests.packages.urllib3 as urllib3
-
-from .utils import BadKarma
-from .utils import which
 
 # in python 3, ConfigParser has been renamed configparser
 try:
-    from ConfigParser import ConfigParser
+    from ConfigParser import ConfigParser, NoOptionError, DuplicateSectionError
 except ImportError:
     # python 3
-    from configparser import ConfigParser
+    from configparser import ConfigParser, NoOptionError, DuplicateSectionError
 
-CONFIG_FILE = os.path.expanduser('~/.tower_cli.cfg')
 
-def set_tower_cli_config(key, value):
+class ConfigError(Exception):
     """
-    Calls tower-cli and overwrite the given key with the given value in the
-    configuration file
-    Args:
-        key (str): configuration key to update
-        value (str): configuration value to update
+    Error in configuration
     """
-    cmd = [which('tower-cli'),
-           'config',
-           key,
-           value]
-    tower = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    tower.wait()
-    if tower.returncode != 0:
-        raise BadKarma(tower.stderr)
-    else:
-        print("Configuration for {0} overwritten".format(key))
+    pass
 
 
-def set_tc_config(key, value, config, config_file=CONFIG_FILE):
+class Config(object):
     """
-    Modifies the tower-cli configuration for values which are not supported by
-    tower-cli
-    Args:
-        key (str): configuration key to update
-        value (str): configuration value to update
+    Manages your configuration
     """
-    config.set('general', key, value)
-    cfgfile = open(config_file, "w")
-    config.write(cfgfile)
-    cfgfile.close()
-    print("Configuration for {0} overwritten".format(key))
+    def __init__(self, config_file):
+        configparser = ConfigParser()
+        if config_file:
+            configparser.read(config_file)
+        self.config_file = config_file
+        self.configparser = configparser
+        self._add_general_section()
+        # now the configuration is initialized with the content of the
+        # configuration file. Next step is to read the environment and check
+        # if there are any values provided by th
+        self._update_from_env('TC_USERNAME', 'username')
+        self._update_from_env('TC_PASSWORD', 'password')
+        self._update_from_env('TC_HOST', 'host')
+        self._update_from_env('TC_VERIFY_SSL', 'verify_ssl')
+        self._update_from_env('TC_RECKLESS_MODE', 'reckless_mode')
 
+        # decide whatever we need to suppress some bad output because we did not
+        # have decent SSL certifcates
+        self._reckless_mode()
 
-def set_config(key, value, config=None):
-    """
-    Calles the right set configuration function based on the value which is
-    to modify
-    Args:
-        key (str): configuration key to update
-        value (str): configuration value to update
-        config (ConfigParser obj): current configuration
-    """
-    tower_cli_config = ['host', 'username', 'password', 'verify_ssl']
-    if key in tower_cli_config:
-        set_tower_cli_config(key, value)
-    else:
-        set_tc_config(key, value, config)
+    def get(self, option):
+        """
+        nice and cozy method to interact to read values from your configuration.
+        Returns the value of 'option' from the 'general' section.
+        If option is not found, it raises a ConfigError exception.
+        Params:
+            option (str): option you want to read from in memory configuration
 
+        Returns:
+            (str): value of the option from the 'general' section
 
-def overwrite_config_tower_cli():
-    """
-    Search the environment for local set configuration. If values set in the
-    environment variables then overwrite the tower-cli config with these values
-    """
-    username = os.environ.get('TC_USERNAME')
-    if username:
-        set_config('username', username)
-    password = os.environ.get('TC_PASSWORD')
-    if password:
-        set_config('password', password)
-    host = os.environ.get('TC_HOST')
-    if host:
-        set_config('host', host)
-    verify_ssl = os.environ.get('TC_VERIFY_SSL')
-    if verify_ssl:
-        set_config('verify_ssl', verify_ssl)
+        Raises:
+            ConfigError
+        """
+        config = self.configparser
+        try:
+            return config.get('general', option)
+        except NoOptionError as error:
+            raise ConfigError(error)
 
-def overwrite_config_tc(config):
-    """
-    Search the environment for local set configuration. If values set in the
-    environment variables then overwrite the tower-cli config with these values
-    """
-    reckless_mode = os.environ.get('TC_RECKLESS_MODE')
-    if reckless_mode:
-        set_config('reckless_mode', reckless_mode, config)
+    def getboolean(self, option):
+        """
+        Similar to get() method, it returns the boolean value of 'option' from
+        your configuration
 
+        Params:
+            option (str): option you want to read from in memory configuration
 
-def get_config(config_file=CONFIG_FILE):
-    """
-    Returns a configuration object.
-    It reads the default tower_cli.cfg file
-    Args:
-        config_file (str): configuration file, use the tower-cli default
-            configuration.
-    Returns:
-        config (ConfigParser): a nice convenient way to carry your configuration
-            with you. Believe me it's the new black.
-    """
-    # This step also makes sure that the configuration will be created if at least one
-    # value is given as environment variable
-    overwrite_config_tower_cli()
+        Returns:
+            (boolean): value of the option from the 'general' section
 
-    if not os.path.isfile(config_file):
-        raise BadKarma('No configuration set. Refusing to proceed any further')
-    config = ConfigParser()
-    config.read(config_file)
-    # We know we have a config file which we can modify if needed
-    overwrite_config_tc(config)
-    if config.has_option('general', 'reckless_mode'):
-        if config.get('general', 'reckless_mode') == 'yes':
-            set_reckless_mode()
-    return config
+        Raises:
+            ConfigError
+        """
+        config = self.configparser
+        try:
+            return config.getboolean('general', option)
+        except (NoOptionError, ValueError) as error:
+            raise ConfigError(error)
 
+    def has_option(self, option):
+        """
+        Checks whatever config has 'option'
+        """
+        config = self.configparser
+        return config.has_option('general', option)
 
-def set_reckless_mode():
-    """
-    Live fast, die young, get hacked and cry.
-    If you're here, you have bad SSL certficates
-    urllib3, used by requests, clobbers the output with a lot of SSL warnings
-    the following lines, just disables the warning messages.
+    def update(self, option, value):
+        """
+        Updates a configuration value
+        section is hardcoded to 'general'
+        Params:
+            option (str): option you want to value from in memory configuration
 
-    Enable this only if you're a bad person.
-    """
-    urllib3_logger = logging.getLogger('urllib3')
-    urllib3_logger.setLevel(logging.CRITICAL)
-    urllib3.disable_warnings()
+            value (str): value you want to set
+        """
+        if not isinstance(option, str):
+            msg = "failed to update: option must be a string"
+            raise ConfigError(msg)
+
+        if not isinstance(value, str):
+            msg = "failed to update: option must be a string"
+            raise ConfigError(msg)
+
+        config = self.configparser
+        config.set(section='general', option=option, value=value)
+
+    def write(self):
+        """
+        Saves current configuration to config_file
+        """
+        config = self.configparser
+        with open(self.config_file, 'w') as out_config:
+            config.write(out_config)
+
+    def _add_general_section(self):
+        """
+        In case your configuration file is so bad that you don't have a
+        'general' section
+        """
+        config = self.configparser
+        try:
+            config.add_section('general')
+        except DuplicateSectionError:
+            # yeah nothing to do, the section already exist
+            pass
+
+    def _update_from_env(self, env_variable, option):
+        """
+        Gets configuration from the current environment, values set in the
+        environment take precedence on the one configured in the standard
+        configuration file.
+
+        Params:
+            env_variable (str): name of the environmental variable to use
+
+            option (str): name of configuration
+        """
+        value = os.environ.get(env_variable)
+        if value:
+            self.update(option=option, value=value)
+
+    def _reckless_mode(self):
+        """
+        Live fast, die young, get hacked and cry.
+        If you're here, you have bad SSL certficates
+        urllib3, used by requests, clobbers the output with a lot of SSL warnings
+        the following lines, just disables the warning messages.
+
+        Enable this only if you're a bad person.
+        """
+        config = self.configparser
+        try:
+            if config.getboolean('general', 'reckless_mode'):
+                # look reckless mode!
+                urllib3.disable_warnings()
+        except NoOptionError:
+            # reckless mode is not even configured, it's an exception but it is
+            # the happiest path!
+            return

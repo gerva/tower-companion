@@ -9,6 +9,7 @@ from setuptools.command.test import test as TestCommand
 # To use a consistent encoding
 from codecs import open
 from os import path
+import sys
 
 here = path.abspath(path.dirname(__file__))
 
@@ -16,17 +17,21 @@ here = path.abspath(path.dirname(__file__))
 with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
+
 class Tox(TestCommand):
     user_options = [('tox-args=', 'a', "Arguments to pass to tox")]
+
     def initialize_options(self):
         TestCommand.initialize_options(self)
         self.tox_args = None
+
     def finalize_options(self):
         TestCommand.finalize_options(self)
         self.test_args = []
         self.test_suite = True
+
     def run_tests(self):
-        #import here, cause outside the eggs aren't loaded
+        # import here, cause outside the eggs aren't loaded
         import tox
         import shlex
         args = self.tox_args
@@ -89,7 +94,9 @@ setup(
     # requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
     install_requires=[
-        'ansible-tower-cli==3.0.1',
+        'PyYAML==3.12',
+        'requests==2.11.1',
+        'click==6.6',
     ],
 
     # To provide executable scripts, use entry points in preference to the
@@ -97,13 +104,13 @@ setup(
     # pip to create the appropriate form of executable for the target platform.
     entry_points={
         'console_scripts': [
-            'kick_and_monitor=lib.tc:cli_kick_and_monitor',
-            'monitor=lib.tc:cli_monitor',
-            'kick=lib.tc:cli_kick',
-            'ad_hoc_and_monitor=lib.tc:cli_ad_hoc_and_monitor',
-            'ad_hoc=lib.tc:cli_ad_hoc',
+            'kick_and_monitor=lib.cli:cli_kick_and_monitor',
+            'monitor=lib.cli:cli_monitor',
+            'kick=lib.cli:cli_kick',
+            'ad_hoc_and_monitor=lib.cli:cli_ad_hoc_and_monitor',
+            'ad_hoc=lib.cli:cli_ad_hoc',
         ],
     },
-	tests_require=['tox'],
-    cmdclass = {'test': Tox},
+    tests_require=['tox'],
+    cmdclass={'test': Tox},
 )

@@ -1,0 +1,6 @@
+[run]
+source = .
+omit =
+   test/*
+   .tox/*
+   setup.py

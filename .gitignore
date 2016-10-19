@@ -4,9 +4,11 @@ build/
 dist/
 tower_companion.egg-info/
 *.rpm
+*.egg/
+*.egg
 # files created by tests
 .cache/
-.coverage*
+.coverage
 .eggs/
 .tox/
 htmlcov-py*/

@@ -3,457 +3,242 @@
 Start and monitor ansilbe tower jobs from the command line, in real time.
 Grab your pop corns.
 """
-from __future__ import print_function
-from __future__ import absolute_import
+from __future__ import print_function, absolute_import
 import json
-import os
-import subprocess
-import sys
 from time import sleep
-import click
-import requests
-import yaml
-from .utils import BadKarma
-from .utils import which
-from .configuration import get_config
+from .api import APIv1, APIError
 
 # some constants
 SLEEP_INTERVAL = 1.0  # sleep interval
-SUCCESS = 1
 
-# more about the configuration file:
-# this script expects you have a file called ~/.tower_cli.cfg with the following
-# content:
-#
-# [general]
-# host = myansibletower.com
-# username = jdoe
-# password = super_secret
-# verify_ssl = false
 
-def get_template_id_from_name(template_name):
+class GuardError(Exception):
     """
-    Returns a template id from a template name
-    Args:
-        template_name (str): the name of template
-
-    Retruns:
-        (str): template id if found
-
-    Raises:
-        BadKarma
+    Generic Guard Error
     """
-    cmd = [which('tower-cli'),
-           'job_template',
-           'get',
-           '--name', template_name,
-           '--format=json']
-    tower = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    # We can block here, it takes a split of a second to ask ansible tower to
-    # start a specific job.
-    tower.wait()
-    try:
-        result = get_json_from_stdout(tower.stdout)
-        return result['id']
-    except ValueError:
-        msg = "Did not find {0} template".format(template_name)
-        raise BadKarma(msg)
-
-
-def _validate_extra_vars(extra_vars):
-    """
-    according to the tower-cli inline help.
-    -e, --extra-vars TEXT   yaml format text that contains extra variables to
-    pass on. Use @ to get these from a file.
-
-    This function needs some love.
-
-    Args:
-        extra_vars (str): yml formatted string that contains your extra
-            variables for your job template
-    """
-    # check if extra_vars is a file
-    if extra_vars.startswith('@'):
-        # yes, it's a file, let's check this file exists..
-        # partition all the way! If you think the next line of code is
-        # unreadealbe, you're probably right, but regex won't make it any better
-        # Let's delegate the validation of the yml file to tower-cli.
-        return os.path.isfile(extra_vars.partition['@'][2].strip())
-
-    # extra_vars is not pointing to a file, let's try to load it..
-    try:
-        yaml.load(extra_vars)
-    # trap here all the exceptions, there may be some more
-    except (yaml.scanner.ScannerError, ):
-        msg = 'Provided extra-vars are not valid: {0}'.format(extra_vars)
-        raise BadKarma(msg)
-
-
-def get_json_from_stdout(stdout):
-    """
-    Take the output of stdout as provided by subprocess.Popen and transform it
-    to a json object - The reason of this funciton is because in python3 stdout
-    will be byte object not a string and json.load() do not like it
-
-    Args:
-        stdout (): as provided by subprocess.Popen
-
-    Returns:
-        json object
-
-    Raises:
-        BadKarma
-
-    """
-    try:
-        return json.loads(stdout.read().decode('utf-8'))
-    except json.decoder.JSONDecodeError as error:
-        raise BadKarma(error)
-
-
-def kick(template_id, extra_vars):
-    """
-    Starts a job in ansible tower
-    Args:
-        template_id (int): id of the template to start
-    Returns:
-        job_id (int): id of the triggered job
-
-    Note::
-        there's no need to pass the configuration as a parameter. We are calling
-        the tower-cli command that knows where to get its configuration.
-        hint: it's from CONFIG_FILE
-    """
-    cmd = [which('tower-cli'),
-           'job',
-           'launch',
-           '-e', extra_vars,
-           '-J', str(template_id),
-           '--format=json']
-    tower = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    # We can block here, it takes a split of a second to ask ansible tower to
-    # start a specific job.
-    tower.wait()
-    job = get_json_from_stdout(tower.stdout)
-    return job['id']
-
-
-def ad_hoc(inventory, machine_credential, module_name, job_type, module_args,
-           limit, job_explanation, verbose, become):
-    """
-    Starts a ad hoc job in ansible tower
-    Args:
-        inventory (str): Inventory to run on
-        machine_credential (str): SSH credentials name
-        module_name (str): Ansible module to run
-        job_type (str): Job type to run. options: run, check
-        module_args (str): Arguments for the selected module
-        limit (str): Limit to hosts
-        job_explanation (str): Job description
-        verbose (bool): Verbose output
-        become (bool): Bocome root
-    Returns:
-        job_id (int): id of the triggered job
-
-    Note::
-        there's no need to pass the configuration as a parameter. We are calling
-        the tower-cli command that knows where to get its configuration.
-        hint: it's from CONFIG_FILE
-    """
-    cmd = [which('tower-cli'),
-           'ad_hoc',
-           'launch',
-           '-i', inventory,
-           '--machine-credential', machine_credential,
-           '--module-name', module_name,
-           '--job-type', job_type,
-           '--module-args', module_args,
-           '--limit', limit,
-           '--job-explanation', job_explanation,
-           '--format=json']
-
-    if verbose:
-        cmd.append('--versbose')
-    if become:
-        cmd.append('--become')
-
-    tower = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    # We can block here, it takes a split of a second to ask ansible tower to
-    # start a specific job.
-    tower.wait()
-    job = get_json_from_stdout(tower.stdout)
-    return job['id']
-
-
-def _get_tower_job_url(job_id, config, output_format):
-    """
-    Returns the url
-    """
-    host = config.get('general', 'host')
-    return 'https://{0}/api/v1/jobs/{1}/stdout/?format={2}'.format(host,
-                                                                   job_id,
-                                                                   output_format)
-
-
-def _get_tower_ad_hoc_url(job_id, config, output_format):
-    """
-    Returns the url
-    """
-    host = config.get('general', 'host')
-    return 'https://{0}/api/v1/ad_hoc_commands/{1}/stdout/?format={2}'.format(
-        host, job_id, output_format)
-
-
-def job_id_status(job_id):
-    """
-    tower-cli job status 17571
-    """
-    jobtypes = ['job', 'ad_hoc']
-    for jobtype in jobtypes:
-        cmd = [which('tower-cli'),
-               jobtype,
-               'status',
-               str(job_id),
-               '--format=json']
-        tower = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        # We can block here, it takes a split of a second to ask ansible tower to
-        # start a specific job.
-        tower.wait()
-        try:
-            return get_json_from_stdout(tower.stdout)
-        except ValueError:
-            continue
-
-    msg = "Did not find {0} template".format(job_id)
-    raise BadKarma(msg)
-
-
-def _get_job_output(job_id, config, output_format):
-    username = config.get('general', 'username')
-    password = config.get('general', 'password')
-    verify_ssl = True
-    if config.has_option('general', 'verify_ssl'):
-        verify_ssl = config.getboolean('general', 'verify_ssl')
-
-    url_builders = [_get_tower_job_url, _get_tower_ad_hoc_url]
-    for url_builder in url_builders:
-        job_url = url_builder(job_id, config, output_format)
-        request = requests.get(job_url, auth=(username, password),
-                               verify=verify_ssl, allow_redirects=True, stream=True)
-        if request.status_code == requests.codes.ok:
-            return request.text
-        else:
-            continue
-
-    # Did not find the job or ad_hoc command...
-    msg = "Error getting {0} - return code: {1}".format(job_url,
-                                                        request.status_code)
-    raise BadKarma(msg)
-
-
-def monitor(job_id, config, output_format):
-    """
-    Monitor the execution of job_id.
-    it needs a configuration object because we need to authenticate on our
-    ansible tower instance (kick_job - do not require authentication because it
-    uses the tower-cli script and it can figure out by iself the right
-    credentials.
-    """
-
-    # we usually don't have valid ssl certificates so we need to verify=False in
-    # all the requests calls. Instead of hardcoding, let the configuration
-    # decide if we need to verify=True or False.
-    # nothing has been printed so far, prev_req is an empty utf-8 string.
-    prev_output = u''
-    # suppose the job is not complete
-    complete = False
-    result = None
-    while not complete:
-        # get the current status from the API point
-        output = _get_job_output(job_id, config, output_format)
-        # take a nap
-        sleep(SLEEP_INTERVAL)
-        # we just want to display the lines that have not been printed yet
-        display_me = output.replace(prev_output, '')
-        # now, for each line in the ouptut
-        for line in display_me.split('\n'):
-            # if the line is not empty,
-            if line:
-                # ... just print it
-                print(line)
-        # now all the new lines have been printed, set prev_req to output
-        prev_output = output
-        result = job_id_status(job_id)
-        complete = result['status'] in ('successful', 'canceled', 'failed')
-
-    # print some other information
-    download_url = _get_tower_job_url(job_id, config, 'txt_download')
-    print('you can download the full output from: {0}'.format(download_url))
-    # check if the job was successful
-    result = job_id_status(job_id)
-    if result['failed']:
-        msg = 'job id {0}: ended with errors'.format(job_id)
-        raise BadKarma(msg)
-    return SUCCESS
-
-
-def is_debug_mode():
-    """
-    Checks if the debug mode is set
-    """
-    return 'DEBUG_MODE' in os.environ
-
-
-def debug_me():
-    """
-    Prints the debug outbut
-    """
-    cmd = [which('tower-cli'), 'version', ]
-    tower = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-    tower.wait()
-    for line in tower.stdout:
-        line = line.strip()
-        if line:
-            print(line)
-    print()
-    print('virtualenvironment info:')
-    cmd = [which('pip'), 'freeze']
-    pip = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-    pip.wait()
-    for line in pip.stdout:
-        line = line.strip()
-        if line:
-            print(line)
-
-
-@click.command()
-@click.option('--template-name', help='Job template name', required=True)
-@click.option('--extra-vars', help='Extra variables', type=str, default='')
-def cli_kick(template_name, extra_vars):
-    """
-    Start an ansible tower job from the command line
-    """
-    try:
-        # verify configuration
-        get_config()
-        _validate_extra_vars(extra_vars)
-        template_id = get_template_id_from_name(template_name)
-        job_id = kick(template_id=template_id, extra_vars=extra_vars)
-        print('Started job: {0}'.format(job_id))
-    except BadKarma as error:
-        msg = 'Error kicking job tempate: {0} - {1}'.format(template_name,
-                                                            error)
-        print(msg)
-        sys.exit(1)
-
-
-@click.command()
-@click.option('--job-id', help='Job id to monitor', required=True)
-@click.option('--output-format',
-              type=click.Choice(['ansi', 'txt']),
-              default='ansi',
-              help='output format')
-def cli_monitor(job_id, output_format):
-    """
-    Monitor the execution of an ansible tower job
-    """
-    try:
-        # verify configuration
-        config = get_config()
-        monitor(job_id, config, output_format=output_format)
-    except BadKarma as error:
-        msg = 'Error monitoring job id: {0} - {1}'.format(job_id, error)
-        print(msg)
-        sys.exit(1)
-
-
-@click.command()
-@click.option('--template-name', help='Job template name', required=True)
-@click.option('--extra-vars', help='Extra variables', type=str, default='')
-@click.option('--output-format',
-              type=click.Choice(['ansi', 'txt']),
-              default='ansi',
-              help='output format')
-def cli_kick_and_monitor(template_name, extra_vars, output_format):
-    """
-    Trigger an ansible tower job and monitor its execution.
-    In case of error it returns a bad exit code.
-    """
-    try:
-        config = get_config()
-        _validate_extra_vars(extra_vars)
-        template_id = get_template_id_from_name(template_name)
-        job_id = kick(template_id=template_id, extra_vars=extra_vars)
-        print('job id: {0}'.format(job_id))
-        success = monitor(job_id, config, output_format=output_format)
-        if not success:
-            sys.exit(1)
-    except BadKarma as error:
-        print("Execution Error: {0}".format(error))
-        sys.exit(1)
-
-
-@click.command()
-@click.option('--inventory', help='Inventory to run on', required=True)
-@click.option('--machine-credential', help='SSH credentials name', required=True)
-@click.option('--module-name', help='Ansible module to run', required=True)
-@click.option('--job-type', type=click.Choice(['run', 'check']),
-              help='Type of job so execute', default='run')
-@click.option('--module-args', help='Arguments for the selected module', type=str, default='')
-@click.option('--limit', help='Limit to hosts', type=str, default='')
-@click.option('--job-explanation', help='Job description', type=str, default='')
-@click.option('--verbose', help='Verbose mode', is_flag=True)
-@click.option('--become', help='Become root', is_flag=True)
-@click.option('--output-format',
-              type=click.Choice(['ansi', 'txt']),
-              default='ansi',
-              help='output format')
-def cli_ad_hoc_and_monitor(inventory, machine_credential, module_name,
-                           job_type, module_args, limit, job_explanation,
-                           verbose, become, output_format):
-    """
-    Trigger an ansible tower ad hoc job and monitor its execution.
-    In case of error it returns a bad exit code.
-    """
-    try:
-        config = get_config()
-        job_id = ad_hoc(inventory, machine_credential, module_name, job_type,
-                        module_args, limit, job_explanation, verbose, become)
-        print('job id: {0}'.format(job_id))
-        success = monitor(job_id, config, output_format=output_format)
-        if not success:
-            sys.exit(1)
-    except BadKarma as error:
-        print("Execution Error: {0}".format(error))
-        sys.exit(1)
-
-
-@click.command()
-@click.option('--inventory', help='Inventory to run on', required=True)
-@click.option('--machine-credential', help='SSH credentials name', required=True)
-@click.option('--module-name', help='Ansible module to run', required=True)
-@click.option('--job-type', type=click.Choice(['run', 'check']),
-              help='Type of job so execute', default='run')
-@click.option('--module-args', help='Arguments for the selected module', type=str, default='')
-@click.option('--limit', help='Limit to hosts', type=str, default='')
-@click.option('--job-explanation', help='Job description', type=str, default='')
-@click.option('--verbose', help='Verbose mode', is_flag=True)
-@click.option('--become', help='Become root', is_flag=True)
-def cli_ad_hoc(inventory, machine_credential, module_name, job_type,
-               module_args, limit, job_explanation, verbose, become):
-    """
-    Trigger an ansible tower ad hoc job and monitor its execution.
-    In case of error it returns a bad exit code.
-    """
-    try:
-        get_config()
-        job_id = ad_hoc(inventory, machine_credential, module_name, job_type,
-                        module_args, limit, job_explanation, verbose, become)
-        print('Started job: {0}'.format(job_id))
-    except BadKarma as error:
-        print("Execution Error: {0}".format(error))
-        sys.exit(1)
-
-
-if __name__ == '__main__':
     pass
+
+
+class Guard(object):
+    """
+    Your belowed tower house keeper. It just need a configuration object
+    and it will do all the dirty job for you.
+    """
+    def __init__(self, config):
+        self.config = config
+        try:
+            self.api = APIv1(config)
+        except APIError as error:
+            raise GuardError(error)
+
+    def get_template_id(self, template_name):
+        """
+        Returns a template id from a template name
+        Args:
+            template_name (str): the name of template
+
+        Retruns:
+            (str): template id if found
+
+        Raises:
+            GuardError
+        """
+        api = self.api
+        try:
+            data = api.template_data(template_name)
+            return data['results'][0]['id']
+        except APIError as error:
+            raise GuardError(error)
+
+    def kick(self, template_id, extra_vars):
+        """
+        Starts a job in ansible tower
+        Args:
+            template_id (int): id of the template to start
+        Returns:
+            job_id (int): id of the triggered job
+        Raises:
+            GuardError
+        """
+        try:
+            return self.api.launch_template_id(template_id, extra_vars)
+        except APIError as error:
+            raise GuardError(error)
+
+    def download_url(self, job_id, output_format):
+        """
+        Returns the url
+        """
+        host = self.config.get('host')
+        return 'https://{0}/api/v1/jobs/{1}/stdout/?format={2}'.format(
+            host, job_id, output_format)
+
+    def ad_hoc_url(self, job_id, output_format):
+        """
+        Returns the url
+        """
+        host = self.config.get('host')
+        return 'https://{0}/api/v1/ad_hoc_commands/{1}/stdout/?format={2}'.format(
+            host, job_id, output_format)
+
+    def monitor(self, job_url, output_format, sleep_interval=SLEEP_INTERVAL):
+        """
+        Monitor the execution of a job stdout endpoint
+        Args:
+            job_url (str): job url
+            output_format (str): text, ansi, ...
+            sleep_interval (float): number of seconds between two consecutive
+                calls to stdout endpoint
+        Raises:
+            GuardError
+        """
+        # a good old empty string
+        prev_output = u''
+        # suppose the job is not complete
+        result = None
+        complete = False
+        api = self.api
+        try:
+            while not complete:
+                complete = api.job_finished(job_url)
+                # get the current status from the API point
+                output = api.job_stdout(job_url, output_format)
+                # take a nap
+                sleep(sleep_interval)
+                # we just want to display the lines that have not been printed
+                # yet
+                print_me = output.replace(prev_output, '').strip()
+                # do not print empty lines
+                if print_me:
+                    print(print_me)
+                # now all the new lines have been printed, set prev_req to output
+                prev_output = output
+            result = api.job_status(job_url)
+        except APIError as error:
+            raise GuardError(error)
+
+        # print some other information
+        # download_url = self.download_url(job_id, 'txt_download')
+        # print('you can download the full output from: {0}'.format(download_url))
+        # check if the job was successful
+        if result == 'failed':
+            msg = 'job id {0}: ended with errors'.format(job_url)
+            raise GuardError(msg)
+
+    def kick_and_monitor(self, template_name, extra_vars, output_format,
+                         sleep_interval=SLEEP_INTERVAL):
+        """
+        Starts a job and monitors its execution
+
+        Args:
+            template_name (str): Name of the template
+            extra_vars (list|tuple): extra variables
+            output_format (str): output format
+        Raises:
+            GuardError
+        """
+        api = self.api
+        try:
+            template_id = api.template_id(template_name)
+            job = self.kick(template_id, extra_vars)
+            job_url = self.launch_data_to_url(job)
+            self.monitor(job_url, output_format, sleep_interval)
+        except APIError as error:
+            raise GuardError(error)
+
+    def launch_data_to_url(self, job_data):
+        """
+        Did you just execute a job? pass the json file you just got back from
+        the api to this method and get its url
+
+        Args:
+            job_data (dict): whatever a kick job returned to you
+
+        Returns:
+            url (str): url of the job
+
+        Raises:
+            GuardError
+        """
+        api = self.api
+        try:
+            return api.launch_data_to_url(job_data)
+        except APIError as error:
+            raise GuardError(error)
+
+    def ad_hoc(self, ad_hoc):
+        """
+        Starts a ad hoc job in ansible tower
+        Args:
+            ad_hoc (AdHoc): Inventory to run on
+        Returns:
+            job_id (int): id of the triggered job
+
+        """
+        api = self.api
+        try:
+            result = api.launch_ad_hoc(ad_hoc)
+            return json.loads(result.text)
+        except APIError as error:
+            raise GuardError(error)
+
+    def wait_for_job_to_start(self, job_id, sleep_interval=SLEEP_INTERVAL):
+        """
+        Ad hoc jobs to not start immediatly, we need to call the api few times
+        before the job gets started. This method blocks the execution of monitor
+        until the ad hoc command is started.
+
+        Args:
+            job_id (AdHoc): ad hoc object
+            sleep_interval (float): how long to wait before calling the api
+                again and get any new output text
+        """
+        api = self.api
+        started = False
+        try:
+            while not started:
+                sleep(sleep_interval)
+                started = api.job_info(job_id) is not None
+        except APIError as error:
+            raise GuardError(error)
+
+    def ad_hoc_and_monitor(self, ad_hoc, sleep_interval=SLEEP_INTERVAL):
+        """
+        Starts an ad hoc job and outputs the job output on stdout
+
+        Args:
+            ad_hoc (AdHoc): ad hoc object
+            sleep_interval (float): how long to wait before calling the api
+                again and get any new output text
+        Raises:
+            GuardError
+        """
+        try:
+            job = self.ad_hoc(ad_hoc)
+            job_url = self.launch_data_to_url(job)
+            job_id = job['id']
+            # wait for job to be started
+            self.wait_for_job_to_start(job_id, sleep_interval)
+            self.monitor(job_url, output_format='text')
+        except APIError as error:
+            raise GuardError(error)
+
+    def job_url(self, job_id):
+        """
+        transforms a job id into a job_url, using fireworks and some magic
+        tricks. Do not try this at home!
+
+        Args:
+            job_id (int|str): job id
+
+        Returns:
+            (str): url of the job
+
+        Raises:
+            GuardError
+        """
+        api = self.api
+        try:
+            return api.job_url(job_id)
+        except APIError as error:
+            raise GuardError(APIError)

@@ -18,48 +18,93 @@ Tower companion provides the following command line scripts:
 -  [ad_hoc_and_monitor](#ad_hoc_and_monitor)
 
 
+Requirements
+------------
+This tool needs a running instance of [Ansible Tower](https://www.ansible.com/tower)
 
 Installation
 ------------
-Tower companion is avaliable as a package on PyPi
-To install tower-companion execute: ``pip install tower-companion``
+Tower companion is available as a package on PyPi
 
+To install tower-companion execute: ``pip install tower-companion`` we strongly suggest to install this package in a brand new virtual environment. If you are new to python virtual environments, read this [guide](https://packaging.python.org/installing/#id12)
 
-configuration
+Now that tower-companion is installed, let's [configure](#configuration) it.
+
+### <a name="configuration"></a>
+Configuration
 -------------
-This tool uses ansible tower cli, and expects you to have a ``~/.tower-cli.cfg``
-in your home directory or in any other directory describe in the ansible
-tower-cli configuration section. Please refer to the [ansible-tower-cli
-documentation page](https://github.com/ansible/tower-cli)
-
-You can also overwrite the configuration with environment variables:
-
-    - TC_USERNAME=ansibleuser
-    - TC_PASSWORD=ansiblepassword
-    - TC_HOST=ansiblehost.com
-    - TC_VERIFY_SSL=false
-    - TC_RECKLESS_MODE=yes
+This tool uses expects you to have a ``TC_CONFIG`` environment variable set.
+If there's no such variable, it will try to read the configuration from:
+``~/.tower-cli.cfg`` (ansible-tower-cli default location) .Please refer to
+the [ansible-tower-cli documentation page](https://github.com/ansible/tower-cli)
 
 
-reckless mode
--------------
-If you use valid SSL certificates, skip this section. If your ansible tower
-instance SSL certificates are not valid, you might want to enter into reckless
-mode. This option supresses the SSL issue warnings in the ouptut messasages.
-It's just a workaround you should use valid certificates instead of activating
-this option.
+#### configuration file <a name="configuration_file"></a>
 
-If you *really* want to enter into reckless mode, add the following line in your
-`~/.tower-cli.cfg` file.
+This tool expects a configuration file in the following format:
 
-    ...
-    reckless_mode: yes
+    [general]
+    host = example.com
+    username = test
+    password = password
+    verify_ssl = false
+    reckless_mode = yes
 
+
+### configuration options
+All the following options should be created under the ``[general]`` section because tower-companion only cares about values set in this ``section``:
+
+Your configuration should include the following options:
+- ``host``: (*required*) ansible tower instance
+- ``username``: (*required*) name of the user to connect to the ansible tower
+instance
+- ``password``: (*required*) password to connect to the ansible tower instance
+- ``verify_ssl``: (*optional, defaults to ``yes``*) you should keep it to
+`yes`. When set to ``no`` will ignore any ssl error. The only reason to set it
+to ``no`` is because you are using self signed certifactes fro your ansible
+tower instance.
+- ``reckless_mode``:  (*optional, defaults to ``yes``*) you probalby want to
+set it to ``yes`` if you don't want to verify the SSL certificates.
+When ``reckless_mode`` is enabled, you are suppressing all the error messages
+from underalying libraries (urllib3 in this case). We strongly suggest to fix
+the ssl certifcates instead of enabling workarounds. In any cases we understand
+there may be cases where you want to have ``reckless_mode`` enabled.
+Use at your own risk.
+
+#### configuration from enviroment variables <a name="configuration_env"></a>
+the following environment variables are recognized by tower-companion:
+
+| variable name | overrides |
+|---------------|-----------|
+|``TC_USERNAME`` | ``username``|
+|``TC_PASSWORD`` | ``password`` |
+|``TC_HOST`` | ``host`` |
+|``TC_VERIFY_SSL`` | ``verify_ssl``|
+|``TC_RECKLESS_MODE`` | ``reckless_mode``|
+
+
+#### configuration precedence
+There are multiple ways to define configuration options: from a
+[file](#configuration_file) and/or using environment
+[variables](#configuration_env).
+
+
+from lowest to highest:
+
+* ``~/.tower-cli.cfg`` file
+* configuration file pointed by ``TC_CONFIG``
+* specific environment variables overrides
+
+
+
+## Commands:
+this package provides the following commands to interact with your configured
+Ansible Tower instance:
 
 ### <a name="kick"></a>
 kick
 ----
-This script starts an Ansible tower job template and returns immediatly.
+This script starts an Ansible tower job template and returns immediately.
 
 Params:
 
@@ -73,15 +118,15 @@ Returns:
 
 usage:
 
-	kick --help
-	Usage: kick [OPTIONS]
+    kick --help
+    Usage: kick [OPTIONS]
 
-	  Start an ansible tower job from the command line
+      Start an ansible tower job from the command line
 
-	Options:
-	  --template-name TEXT  Job template name  [required]
-	  --extra-vars TEXT     Extra variables
-	  --help                Show this message and exit.
+    Options:
+      --template-name TEXT  Job template name  [required]
+      --extra-vars TEXT     Extra variables
+      --help                Show this message and exit.
 
 example:
 
@@ -99,7 +144,7 @@ tower instance.
 monitor
 -------
 This script takes a job id as paramter and shows the Ansible tower job output
-until the job is not complete (monitor blocks until the job is not complete)
+until the job is complete (monitor blocks until the job is complete)
 
 Params:
 
@@ -113,15 +158,15 @@ Returns:
 
 usage:
 
-	monitor --help
-	Usage: monitor [OPTIONS]
+    monitor --help
+    Usage: monitor [OPTIONS]
 
-	Monitor the execution of an ansible tower job
+    Monitor the execution of an ansible tower job
 
-	Options:
-	  --job-id TEXT               Job id to monitor  [required]
-	  --output-format [ansi|txt]  output format
-	  --help                      Show this message and exit.
+    Options:
+      --job-id TEXT               Job id to monitor  [required]
+      --output-format [ansi|txt]  output format
+      --help                      Show this message and exit.
 
 example:
 
@@ -154,21 +199,21 @@ Params:
 
 Returns:
 
--  exit code 0 if the job comleted without errors
+-  exit code 0 if the job completed without errors
 -  exit code 1 if any issues
 
 usage:
 
-	Usage: kick_and_monitor [OPTIONS]
+    Usage: kick_and_monitor [OPTIONS]
 
-	  Trigger an ansible tower job and monitor its execution. In case of error
-	  it returns a bad exit code.
+      Trigger an ansible tower job and monitor its execution. In case of error
+      it returns a bad exit code.
 
-	Options:
-	  --template-name TEXT        Job template name  [required]
-	  --extra-vars TEXT           Extra variables
-	  --output-format [ansi|txt]  output format
-	  --help                      Show this message and exit.
+    Options:
+      --template-name TEXT        Job template name  [required]
+      --extra-vars TEXT           Extra variables
+      --output-format [ansi|txt]  output format
+      --help                      Show this message and exit.
 
 example:
 
@@ -190,7 +235,7 @@ example:
 ### <a name="ad_hoc"></a>
 ad_hoc
 ----
-This script starts an Ansible tower ad-hoc command and returns immediatly.
+This script starts an Ansible tower ad-hoc command and returns immediately.
 
 Params:
 
@@ -261,7 +306,7 @@ Params:
 
 Returns:
 
--  exit code 0 if the job comleted without errors
+-  exit code 0 if the job completed without errors
 -  exit code 1 if any issues
 
 usage:
