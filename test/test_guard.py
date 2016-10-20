@@ -90,9 +90,10 @@ def test_kick(monkeypatch):
     expected_value = 'kick'
 
     def mockreturn(*args, **kwargs):
-        return expected_value
+        expected_value
 
     monkeypatch.setattr('lib.api.APIv1.launch_template_id', mockreturn)
+    guard.kick(template_id='', extra_vars='')
 
     def mockreturn(*args, **kwargs):
         raise APIError
@@ -213,16 +214,21 @@ def test_ad_hoc(monkeypatch):
 def test_wait_for_job_to_start(monkeypatch):
 
     def mockreturn(*args, **kwargs):
-        return ''
+        return {'results': [{'started': 'yes', 'url': '/here/'}]}
 
     def mockerror(*args, **kwargs):
         raise APIError
 
+    def mock_job_started(*args, **kwargs):
+        return True
+
+    monkeypatch.setattr('lib.api.APIv1.job_url', mockreturn)
     monkeypatch.setattr('lib.api.APIv1.job_info', mockreturn)
+    monkeypatch.setattr('lib.api.APIv1.job_started', mock_job_started)
     guard = basic_guard()
     guard.wait_for_job_to_start(job_id='', sleep_interval=0.0)
 
-    monkeypatch.setattr('lib.api.APIv1.job_info', mockerror)
+    monkeypatch.setattr('lib.api.APIv1.job_url', mockerror)
     with pytest.raises(GuardError):
         guard.wait_for_job_to_start(job_id='', sleep_interval=0.0)
 
@@ -249,16 +255,16 @@ def test_ad_hoc_and_monitor(monkeypatch):
     guard = basic_guard()
     ad_hoc = AdHoc()
     ad_hoc.extra_vars = []
-    guard.ad_hoc_and_monitor(ad_hoc, sleep_interval=0.0)
+    guard.ad_hoc_and_monitor(ad_hoc, output_format='any', sleep_interval=0.0)
 
     monkeypatch.setattr('lib.tc.Guard.ad_hoc', mock_guard_error)
     with pytest.raises(GuardError):
-        guard.ad_hoc_and_monitor(ad_hoc, sleep_interval=0.0)
+        guard.ad_hoc_and_monitor(ad_hoc, output_format='any', sleep_interval=0.0)
 
     monkeypatch.setattr('lib.tc.Guard.ad_hoc', mock_launch)
     monkeypatch.setattr('lib.api.APIv1.launch_data_to_url', mock_api_error)
     with pytest.raises(GuardError):
-        guard.ad_hoc_and_monitor(ad_hoc, sleep_interval=0.0)
+        guard.ad_hoc_and_monitor(ad_hoc, output_format='any', sleep_interval=0.0)
 
 
 def test_job_url(monkeypatch):

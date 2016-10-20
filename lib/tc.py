@@ -196,32 +196,32 @@ class Guard(object):
         api = self.api
         started = False
         try:
+            job_url = api.job_url(job_id)
             while not started:
                 sleep(sleep_interval)
-                started = api.job_info(job_id) is not None
+                started = api.job_started(job_url)
         except APIError as error:
             raise GuardError(error)
 
-    def ad_hoc_and_monitor(self, ad_hoc, sleep_interval=SLEEP_INTERVAL):
+    def ad_hoc_and_monitor(self, ad_hoc, output_format, sleep_interval=SLEEP_INTERVAL):
         """
         Starts an ad hoc job and outputs the job output on stdout
 
         Args:
             ad_hoc (AdHoc): ad hoc object
+            output_format (str): output format, it can be ansi or txt
             sleep_interval (float): how long to wait before calling the api
                 again and get any new output text
         Raises:
             GuardError
         """
-        try:
-            job = self.ad_hoc(ad_hoc)
-            job_url = self.launch_data_to_url(job)
-            job_id = job['id']
-            # wait for job to be started
-            self.wait_for_job_to_start(job_id, sleep_interval)
-            self.monitor(job_url, output_format='text')
-        except APIError as error:
-            raise GuardError(error)
+        job = self.ad_hoc(ad_hoc)
+        job_url = self.launch_data_to_url(job)
+        job_id = job['id']
+        # wait for job to be started
+        self.wait_for_job_to_start(job_id, sleep_interval)
+        self.monitor(job_url, output_format=output_format,
+                        sleep_interval=sleep_interval)
 
     def job_url(self, job_id):
         """
@@ -241,4 +241,4 @@ class Guard(object):
         try:
             return api.job_url(job_id)
         except APIError as error:
-            raise GuardError(APIError)
+            raise GuardError(error)

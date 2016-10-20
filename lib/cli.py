@@ -112,7 +112,7 @@ def cli_kick_and_monitor(template_name, extra_vars, output_format):
               default='ansi',
               help='output format')
 def cli_ad_hoc_and_monitor(inventory, machine_credential, module_name,
-                           job_type, module_args, limit, job_explanation,
+                           module_args, job_type, limit, job_explanation,
                            become, output_format):
     """
     Trigger an ansible tower ad hoc job and monitor its execution.
@@ -133,7 +133,8 @@ def cli_ad_hoc_and_monitor(inventory, machine_credential, module_name,
         adhoc.extra_vars = []
         config = Config(config_file())
         guard = Guard(config)
-        guard.ad_hoc_and_monitor(adhoc, sleep_interval=1.0)
+        guard.ad_hoc_and_monitor(adhoc, output_format=output_format,
+                                 sleep_interval=1.0)
     except GuardError as error:
         print("Execution Error: {0}".format(error))
         sys.exit(1)
@@ -172,7 +173,7 @@ def cli_ad_hoc(inventory, machine_credential, module_name, job_type,
         config = Config(config_file())
         guard = Guard(config)
         result = guard.ad_hoc(adhoc)
-        print(result)
+        print('job url: {0}'.format(guard.job_url(result['id'])))
     except GuardError as error:
         print("Execution Error: {0}".format(error))
         sys.exit(1)
