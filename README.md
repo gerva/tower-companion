@@ -1,7 +1,8 @@
 Tower companion
 ===============
 [![Build Status](https://travis-ci.org/gerva/tower-companion.svg?branch=master)](https://travis-ci.org/gerva/tower-companion)
-[![Coverage Status](https://coveralls.io/repos/github/gerva/tower-companion/badge.svg)](https://coveralls.io/github/gerva/tower-companion)
+[![Coverage Status](https://coveralls.io/repos/github/gerva/tower-companion/badge.svg?branch=master)](https://coveralls.io/github/gerva/tower-companion?branch=master)
+[![Code Health](https://landscape.io/github/gerva/tower-companion/master/landscape.svg?style=flat)](https://landscape.io/github/gerva/tower-companion/master)
 
 Tower companion is a set of utilities to start and monitor Ansible tower jobs
 from the command line.
