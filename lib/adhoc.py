@@ -25,7 +25,6 @@ class AdHoc(object):
         self.credential_id = None
         self.module_name = None
         self.module_args = None
-        self.extra_vars = []
         self.become = None
         self.limit = None
         self.job_type = None
@@ -40,7 +39,6 @@ class AdHoc(object):
         """
         self._is_valid_module_name()
         self._is_valid_job_type()
-        self._are_extra_vars_valid()
 
         if self.inventory_id is None:
             raise AdHocError('inventory_id cannot be None')
@@ -71,19 +69,6 @@ class AdHoc(object):
             msg = "{0}: is not a valid job type".format(self.job_type)
             raise AdHocError(msg)
 
-    def _are_extra_vars_valid(self):
-        """
-        Checks if provided extra vars are valid
-
-        Raises: AdHocError
-        """
-        if not isinstance(self.extra_vars, (tuple, list)):
-            raise AdHocError('extra vars must be a tuple or list instance')
-        for extra_var in self.extra_vars:
-            if not validate.extra_var(var=extra_var):
-                msg = "{0} is not a valid extra variable".format(extra_var)
-                raise AdHocError(msg)
-
     def data(self):
         """
         Transforms the ad hoc command into a data structure that can be used by
@@ -100,7 +85,6 @@ class AdHoc(object):
                 'credential': self.credential_id,
                 'module_name': self.module_name,
                 'module_args': self.module_args,
-                'extra_vars': self.extra_vars,
                 'become_enabled': self.become,
                 'limit': self.limit,
                 'job_type': self.job_type,

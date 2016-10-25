@@ -2,15 +2,43 @@
 Testing tower companion CLI
 """
 import os
+import pytest
 from click.testing import CliRunner
 from lib.tc import GuardError
 from lib.cli import cli_kick, cli_monitor, DEFAULT_CONFIGURATION, config_file
 from lib.cli import cli_kick_and_monitor, cli_ad_hoc_and_monitor, cli_ad_hoc
+from lib.cli import extra_var_to_dict, CLIError
+
+
+CURRENT_DIR = os.path.dirname(__file__)
+TEST_YAML = os.path.join(CURRENT_DIR, 'extra_var.yml')
 
 
 def mock_config_file(*args, **kwargs):
     current_dir = os.path.dirname(__file__)
     return os.path.join(current_dir, 'configuration.cfg')
+
+
+def test_extra_var_to_dict():
+    extra_var = 'version=1'
+    # bad extra var
+    with pytest.raises(CLIError):
+        extra_var_to_dict(extra_var)
+
+    extra_var = '@notexisitngfile'
+    # bad extra var
+    with pytest.raises(CLIError):
+        extra_var_to_dict(extra_var)
+
+    key = 'version'
+    value = '1'
+    extra_var = '{0}: {1}'.format(key, value)
+    extra_var_file = '@{0}'.format(TEST_YAML)
+    for e_var in (extra_var, extra_var_file):
+        result = extra_var_to_dict(e_var)
+        assert isinstance(result, dict)
+        assert key in result
+        assert str(result[key]) == value
 
 
 def test_config_file(monkeypatch):
@@ -27,6 +55,9 @@ def test_cli_kick(monkeypatch):
     def mockerror(*args, **kwargs):
         raise GuardError
 
+    def mock_cli_error(*args, **kwargs):
+        raise CLIError
+
     def mockreturn(*args, **kwargs):
         return 'just a test'
 
@@ -38,13 +69,17 @@ def test_cli_kick(monkeypatch):
     runner = CliRunner()
     # clean execution
     result = runner.invoke(cli_kick, ['--template-name', 'test',
-                                      '--extra-vars', 'version=1.0'])
+                                      '--extra-vars', 'version: 1.0'])
     assert result.exit_code == 0
 
+    monkeypatch.setattr('lib.cli.extra_var_to_dict', mock_cli_error)
+    result = runner.invoke(cli_kick, ['--template-name', 'test',
+                                      '--extra-vars', 'version: 1.0'])
+    assert result.exit_code == 1
     # whooops! error
     monkeypatch.setattr('lib.tc.Guard.get_template_id', mockerror)
     result = runner.invoke(cli_kick, ['--template-name', 'test',
-                                      '--extra-vars', 'version=1.0'])
+                                      '--extra-vars', 'version: 1.0'])
     assert result.exit_code == 1
 
 
@@ -76,6 +111,9 @@ def test_cli_kick_and_monitor(monkeypatch):
     def mockerror(*args, **kwargs):
         raise GuardError
 
+    def mock_cli_error(*args, **kwargs):
+        raise CLIError
+
     def mockreturn(*args, **kwargs):
         return 'just a test'
 
@@ -92,11 +130,19 @@ def test_cli_kick_and_monitor(monkeypatch):
     result = runner.invoke(cli_kick_and_monitor, ['--template-name', 'test'])
     assert result.exit_code == 1
 
+    monkeypatch.setattr('lib.cli.extra_var_to_dict', mock_cli_error)
+    result = runner.invoke(cli_kick_and_monitor, ['--template-name', 'test',
+                           '--extra-vars', 'version: 1.0'])
+    assert result.exit_code == 1
+
 
 def test_cli_ad_hoc_and_monitor(monkeypatch):
 
     def mockerror(*args, **kwargs):
         raise GuardError
+
+    def mock_cli_error(*args, **kwargs):
+        raise CLIError
 
     def mockreturn(*args, **kwargs):
         return 'just a test'
@@ -108,12 +154,12 @@ def test_cli_ad_hoc_and_monitor(monkeypatch):
     args = ['--inventory', 'test',
             '--machine-credential', 'test',
             '--module-name', 'test',
-            '--module-args', 'test1 test2']
+            '--module-args', 'test1 test2', ]
     # clean execution
     result = runner.invoke(cli_ad_hoc_and_monitor, args)
     assert result.exit_code == 0
 
-    # error!
+    # error
     monkeypatch.setattr('lib.tc.Guard.ad_hoc_and_monitor', mockerror)
     result = runner.invoke(cli_ad_hoc_and_monitor, args)
     assert result.exit_code == 1

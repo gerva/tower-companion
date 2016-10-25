@@ -6,7 +6,6 @@ from __future__ import absolute_import
 import copy
 import json
 import requests
-import lib.validate as validate
 from lib.adhoc import AdHocError
 from lib.configuration import ConfigError
 
@@ -85,7 +84,7 @@ class APIv1(object):
         if request.status_code in (requests.codes.ok, requests.codes.created):
             return request
         else:
-            msg = "Failed to get {0} - {1}".format(url, request.reason)
+            msg = "Failed to post {0} - {1}".format(url, request.reason)
             raise APIError(msg)
 
     def _get_json(self, url, params, data=None):
@@ -204,15 +203,7 @@ class APIv1(object):
         """
         url = "{0}/job_templates/{1}/launch/".format(self.api_url,
                                                      template_id)
-        # extra_vars need to be validated
-        for extra_var in extra_vars:
-            if validate.extra_var(extra_var) is False:
-                msg = 'Failed to validate extra variable: {0}'.format(extra_var)
-                raise APIError(msg)
-            extra_vars = {'extra_vars': extra_vars}
-        else:
-            extra_vars = {}
-        # extra vars are all good
+        extra_vars = {'extra_vars': extra_vars}
         request = self._post(url, params={}, data=extra_vars)
         return json.loads(request.text)
 

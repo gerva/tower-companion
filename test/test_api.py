@@ -221,6 +221,9 @@ def test_launch_template_id(monkeypatch):
         mock.status_code = 200
         return mock
 
+    def mockerror(*args, **kwargs):
+        raise APIError
+
     api = basic_api()
     monkeypatch.setattr('requests.post', mockreturn)
     api = basic_api()
@@ -230,9 +233,9 @@ def test_launch_template_id(monkeypatch):
     result = api.launch_template_id(template_id='', extra_vars='')
     assert result == json.loads(fake_text)
 
-    monkeypatch.setattr('lib.validate.extra_var', lambda x: False)
+    monkeypatch.setattr('requests.post', mockerror)
     with pytest.raises(APIError):
-        api.launch_template_id(template_id='', extra_vars=['@test?^^'])
+        api.launch_template_id(template_id='', extra_vars='')
 
 
 def test_launch_data_to_url():
