@@ -1,3 +1,9 @@
+## 2016-10-25 0.1.5
+
+* Cannot trigger jobs which require --extra-vars #27
+* When no configuration file is set, `kick` raises a ConfigError (tx
+michaelgaida) #26
+
 ## 2016-10-20 0.1.4
 
 * Removed depenency on tower-cli #5
