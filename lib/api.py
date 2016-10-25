@@ -8,6 +8,7 @@ import json
 import requests
 import lib.validate as validate
 from lib.adhoc import AdHocError
+from lib.configuration import ConfigError
 
 
 class APIError(Exception):
@@ -27,7 +28,13 @@ class APIv1(object):
     # E: Instance of 'LookupDict' has no 'created' member (no-member)
     def __init__(self, config):
         self.config = config
-        self.host = config.get('host')
+        try:
+            self.host = config.get('host')
+        except ConfigError as error:
+            msg = "Missing key from configuration, {0}.".format(error)
+            msg = "{0} Please check your configuration.".format(msg)
+            raise APIError(msg)
+
         self.api_url = "https://{0}/api/v1".format(self.host)
 
     def _authentication(self):
@@ -38,14 +45,25 @@ class APIv1(object):
             (tuple) username, password
         """
         config = self.config
-        return (config.get('username'), config.get('password'))
+        try:
+            return (config.get('username'), config.get('password'))
+        except ConfigError as error:
+            msg = "Missing key from configuration, {0}.".format(error)
+            msg = "{0} Please check your configuration.".format(msg)
+            raise APIError(msg)
 
     def _verify_ssl(self):
         """
         Gets the value of verify_ssl from the actual configuraion
         """
         config = self.config
-        return config.getboolean('verify_ssl')
+        try:
+            return config.getboolean('verify_ssl')
+        except ConfigError as error:
+            msg = "Missing key from configuration, {0}.".format(error)
+            msg = "{0} Please check your configuration.".format(msg)
+            raise APIError(msg)
+
 
     def _get(self, url, params, data):
         auth = self._authentication()

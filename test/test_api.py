@@ -135,6 +135,25 @@ def test_get_json_error(monkeypatch):
     with pytest.raises(APIError):
         api._get_json(url='', params={}, data={})
 
+def test_less_configuration():
+    config = Config(None)
+    with pytest.raises(APIError):
+        api = APIv1(config)
+
+    config.update('host', HOST)
+    api = APIv1(config)
+    with pytest.raises(APIError):
+        api._authentication()
+
+    config.update('username', USERNAME)
+    api = APIv1(config)
+    with pytest.raises(APIError):
+        api._authentication()
+
+    config.update('password', PASSWORD)
+    api = APIv1(config)
+    with pytest.raises(APIError):
+        api._verify_ssl()
 
 def test_job_params(monkeypatch):
     def mockreturn(*args, **kwargs):
