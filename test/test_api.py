@@ -182,7 +182,6 @@ def test_get_ids(monkeypatch):
 
     monkeypatch.setattr('requests.get', mockreturn)
     api = basic_api()
-    assert api.template_id(name='') == expected_id
     assert api.inventory_id(name='') == expected_id
     assert api.credential_id(name='') == expected_id
 
@@ -201,9 +200,6 @@ def test_get_ids_zero_results(monkeypatch):
             return mock
 
         monkeypatch.setattr('requests.get', mockreturn)
-        with pytest.raises(APIError):
-            api.template_id(name='')
-
         with pytest.raises(APIError):
             api.inventory_id(name='')
 
@@ -237,6 +233,29 @@ def test_launch_template_id(monkeypatch):
     with pytest.raises(APIError):
         api.launch_template_id(template_id='', extra_vars='')
 
+
+def test_update_project_id(monkeypatch):
+    expected_id = 123
+    fake_text = json.dumps({'results': [{'id': expected_id}]})
+
+    def mockreturn(*args, **kwargs):
+        mock = MockRequest()
+        mock.text = fake_text
+        mock.status_code = 200
+        return mock
+
+    def mockerror(*args, **kwargs):
+        raise APIError
+
+    api = basic_api()
+    monkeypatch.setattr('requests.post', mockreturn)
+    api = basic_api()
+    result = api.update_project_id(project_id='')
+    assert result == json.loads(fake_text)
+
+    monkeypatch.setattr('requests.post', mockerror)
+    with pytest.raises(APIError):
+        api.update_project_id(project_id='')
 
 def test_launch_data_to_url():
     api = basic_api()
@@ -336,6 +355,7 @@ def test_get_data(monkeypatch):
 
     monkeypatch.setattr('requests.get', mockreturn)
     assert api.template_data(name='') == json.loads(fake_text)
+    assert api.project_data(name='') == json.loads(fake_text)
     assert api.inventory_data(name='') == json.loads(fake_text)
     assert api.credentials_data(name='') == json.loads(fake_text)
 

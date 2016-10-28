@@ -50,6 +50,9 @@ class ApiMock(object):
     def get_template_id(self):
         return json.load(BASIC_JSON_DATA)
 
+    def get_project_id(self):
+        return json.load(BASIC_JSON_DATA)
+
 
 class MockRequest(object):
     def __init__(self, *args, **kwargs):
@@ -83,6 +86,22 @@ def test_get_template_id(monkeypatch):
     with pytest.raises(GuardError):
         guard.get_template_id(template_name='')
 
+def test_get_project_id(monkeypatch):
+    guard = basic_guard()
+
+    expected_id = '1'
+    fake_result = {'results': [{'id': expected_id}]}
+    def mockreturn(self, project_name):
+        return fake_result
+    monkeypatch.setattr('lib.api.APIv1.project_data', mockreturn)
+    assert guard.get_project_id('') == expected_id
+
+    def mockreturn(self, project_name):
+        raise APIError
+
+    monkeypatch.setattr('lib.api.APIv1.project_data', mockreturn)
+    with pytest.raises(GuardError):
+        guard.get_project_id(project_name='')
 
 def test_kick(monkeypatch):
     # quite a lot of changes, this test has to be updated
@@ -102,6 +121,23 @@ def test_kick(monkeypatch):
     with pytest.raises(GuardError):
         guard.kick(template_id='', extra_vars='')
 
+def test_update_project(monkeypatch):
+    # quite a lot of changes, this test has to be updated
+    guard = basic_guard()
+    expected_value = 'update'
+
+    def mockreturn(*args, **kwargs):
+        expected_value
+
+    monkeypatch.setattr('lib.api.APIv1.update_project_id', mockreturn)
+    guard.update_project(project_id='')
+
+    def mockreturn(*args, **kwargs):
+        raise APIError
+
+    monkeypatch.setattr('lib.api.APIv1.update_project_id', mockreturn)
+    with pytest.raises(GuardError):
+        guard.update_project(project_id='')
 
 def test_download_url():
     guard = basic_guard()
@@ -173,13 +209,13 @@ def test_kick_and_monitor(monkeypatch):
 
     monkeypatch.setattr('lib.tc.Guard.kick', mockreturn)
     monkeypatch.setattr('lib.tc.Guard.monitor', mockreturn)
-    monkeypatch.setattr('lib.api.APIv1.template_id', mockreturn)
+    monkeypatch.setattr('lib.tc.Guard.get_template_id', mockreturn)
     monkeypatch.setattr('lib.api.APIv1.launch_data_to_url', mockreturn)
 
     guard.kick_and_monitor(template_name='', extra_vars=[], output_format='',
                            sleep_interval=0.0)
 
-    monkeypatch.setattr('lib.api.APIv1.template_id', mockerror)
+    monkeypatch.setattr('lib.tc.Guard.get_template_id', mockerror)
     with pytest.raises(GuardError):
         guard.kick_and_monitor(template_name='', extra_vars=[],
                                output_format='', sleep_interval=0.0)
@@ -254,7 +290,6 @@ def test_ad_hoc_and_monitor(monkeypatch):
 
     guard = basic_guard()
     ad_hoc = AdHoc()
-    ad_hoc.extra_vars = []
     guard.ad_hoc_and_monitor(ad_hoc, output_format='any', sleep_interval=0.0)
 
     monkeypatch.setattr('lib.tc.Guard.ad_hoc', mock_guard_error)

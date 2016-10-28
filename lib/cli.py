@@ -100,6 +100,25 @@ def cli_kick(template_name, extra_vars):
         print(msg)
         sys.exit(1)
 
+@click.command()
+@click.option('--project-name', help='Project name', required=True)
+def cli_update_project(project_name):
+    """
+    Update a project from the command line
+    """
+    try:
+        # verify configuration
+        config = Config(config_file())
+        guard = Guard(config)
+        project_id = guard.get_project_id(project_name)
+        guard.update_project(project_id=project_id)
+        print('Started updating project: {0}'.format(project_name))
+    except GuardError as error:
+        msg = 'Error updating project: {0} - {1}'.format(project_name,
+                                                            error)
+        print(msg)
+        sys.exit(1)
+
 
 @click.command()
 @click.option('--job-id', help='Job id to monitor', required=True)
@@ -160,19 +179,16 @@ def cli_kick_and_monitor(template_name, extra_vars, output_format):
 @click.option('--machine-credential', help='SSH credentials name',
               required=True)
 @click.option('--module-name', help='Ansible module to run', required=True)
-@click.option('--job-type', type=click.Choice(['run', 'check']),
-              help='Type of job so execute', default='run')
 @click.option('--module-args', help='Arguments for the selected module',
               type=str, default='')
 @click.option('--limit', help='Limit to hosts', type=str, default='')
-@click.option('--job-explanation', help='Job description', type=str, default='')
 @click.option('--become', help='Become root', is_flag=True)
 @click.option('--output-format',
               type=click.Choice(['ansi', 'txt']),
               default='ansi',
               help='output format')
 def cli_ad_hoc_and_monitor(inventory, machine_credential, module_name,
-                           module_args, job_type, limit, job_explanation,
+                           module_args, limit,
                            become, output_format):
     """
     Trigger an ansible tower ad hoc job and monitor its execution.
@@ -184,13 +200,8 @@ def cli_ad_hoc_and_monitor(inventory, machine_credential, module_name,
         adhoc.credential_id = machine_credential
         adhoc.module_name = module_name
         adhoc.module_args = module_args
-        adhoc.job_type = job_type
         adhoc.limit = limit
-        adhoc.job_explanation = job_explanation
         adhoc.become = become
-        # extra vars are not passed from the command line, extend this in a
-        # future version
-        adhoc.extra_vars = []
         config = Config(config_file())
         guard = Guard(config)
         guard.ad_hoc_and_monitor(adhoc, output_format=output_format,
@@ -204,15 +215,11 @@ def cli_ad_hoc_and_monitor(inventory, machine_credential, module_name,
 @click.option('--inventory', help='Inventory to run on', required=True)
 @click.option('--machine-credential', help='SSH credentials name', required=True)
 @click.option('--module-name', help='Ansible module to run', required=True)
-@click.option('--job-type', type=click.Choice(['run', 'check']),
-              help='Type of job so execute', default='run')
 @click.option('--module-args', help='Arguments for the selected module', type=str, default='')
 @click.option('--limit', help='Limit to hosts', type=str, default='')
-@click.option('--job-explanation', help='Job description', type=str, default='')
-@click.option('--verbose', help='Verbose mode', is_flag=True)
 @click.option('--become', help='Become root', is_flag=True)
-def cli_ad_hoc(inventory, machine_credential, module_name, job_type,
-               module_args, limit, job_explanation, verbose, become):
+def cli_ad_hoc(inventory, machine_credential, module_name,
+               module_args, limit, become):
     """
     Trigger an ansible tower ad hoc job and monitor its execution.
     In case of error it returns a bad exit code.
@@ -223,13 +230,8 @@ def cli_ad_hoc(inventory, machine_credential, module_name, job_type,
         adhoc.credential_id = machine_credential
         adhoc.module_name = module_name
         adhoc.module_args = module_args
-        adhoc.job_type = job_type
         adhoc.limit = limit
-        adhoc.job_explanation = job_explanation
         adhoc.become = become
-        # extra vars are not passed from the command line, extend this in a
-        # future version
-        adhoc.extra_vars = []
         config = Config(config_file())
         guard = Guard(config)
         result = guard.ad_hoc(adhoc)

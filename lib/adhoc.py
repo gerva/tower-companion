@@ -17,6 +17,8 @@ class AdHoc(object):
     """
     AdHoc job
     """
+    JOB_TYPE = 'run'
+    JOB_EXPLANATION = 'Ad Hoc job run by tower-companion'
     # pylint: disable=too-many-instance-attributes
     # those are the parameters we need to send to the api to kick off an ad hoc
     # job.
@@ -27,8 +29,8 @@ class AdHoc(object):
         self.module_args = None
         self.become = None
         self.limit = None
-        self.job_type = None
-        self.job_explanation = None
+        self.job_type = self.JOB_TYPE
+        self.job_explanation = self.JOB_EXPLANATION
 
     def is_valid(self):
         """

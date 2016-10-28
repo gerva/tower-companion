@@ -81,7 +81,8 @@ class APIv1(object):
         headers = {'Content-type': 'application/json'}
         request = requests.post(url, auth=auth, verify=verify, params=params,
                                 data=json.dumps(data), headers=headers)
-        if request.status_code in (requests.codes.ok, requests.codes.created):
+        if request.status_code in (requests.codes.ok, requests.codes.created,
+                                   requests.codes.accepted):
             return request
         else:
             msg = "Failed to post {0} - {1}".format(url, request.reason)
@@ -172,20 +173,20 @@ class APIv1(object):
         """
         return self._get_data(name=name, endpoint='job_templates')
 
-    def template_id(self, name):
+    def project_data(self, name):
         """
-        Returns a template id from a name
+        Returns a json object with data about name
 
         Args:
-            name (str): name of the template
+            name (str): name of the project
 
         Returns:
-            (str): id of the template name
+            (json object)
 
         Raises:
             APIError
         """
-        return self._get_id(name=name, endpoint='job_templates')
+        return self._get_data(name=name, endpoint='projects')
 
     def launch_template_id(self, template_id, extra_vars):
         """
@@ -205,6 +206,24 @@ class APIv1(object):
                                                      template_id)
         extra_vars = {'extra_vars': extra_vars}
         request = self._post(url, params={}, data=extra_vars)
+        return json.loads(request.text)
+
+    def update_project_id(self, project_id):
+        """
+        Updates project
+
+        Params:
+            project_id (str): project_id
+
+        Returns:
+            (str): id of the started job
+
+        Raises:
+            APIError
+        """
+        url = "{0}/projects/{1}/update/".format(self.api_url,
+                                                     project_id)
+        request = self._post(url, params={}, data={})
         return json.loads(request.text)
 
     def adhoc_to_api(self, adhoc):

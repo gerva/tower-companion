@@ -50,6 +50,40 @@ class Guard(object):
         except APIError as error:
             raise GuardError(error)
 
+    def get_project_id(self, project_name):
+        """
+        Returns a project id from a project name
+        Args:
+            project_name (str): the name of project
+
+        Retruns:
+            (str): project id if found
+
+        Raises:
+            GuardError
+        """
+        api = self.api
+        try:
+            data = api.project_data(project_name)
+            return data['results'][0]['id']
+        except APIError as error:
+            raise GuardError(error)
+
+    def update_project(self, project_id):
+        """
+        Updateds a project in ansible tower
+        Args:
+            project_id (int): id of the project to update
+        Returns:
+            job_id (int): id of the triggered job
+        Raises:
+            GuardError
+        """
+        try:
+            return self.api.update_project_id(project_id)
+        except APIError as error:
+            raise GuardError(error)
+
     def kick(self, template_id, extra_vars):
         """
         Starts a job in ansible tower
@@ -137,9 +171,8 @@ class Guard(object):
         Raises:
             GuardError
         """
-        api = self.api
         try:
-            template_id = api.template_id(template_name)
+            template_id = self.get_template_id(template_name)
             job = self.kick(template_id, extra_vars)
             job_url = self.launch_data_to_url(job)
             self.monitor(job_url, output_format, sleep_interval)

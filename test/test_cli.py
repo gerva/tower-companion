@@ -7,6 +7,7 @@ from click.testing import CliRunner
 from lib.tc import GuardError
 from lib.cli import cli_kick, cli_monitor, DEFAULT_CONFIGURATION, config_file
 from lib.cli import cli_kick_and_monitor, cli_ad_hoc_and_monitor, cli_ad_hoc
+from lib.cli import cli_update_project
 from lib.cli import extra_var_to_dict, CLIError
 
 
@@ -82,6 +83,31 @@ def test_cli_kick(monkeypatch):
                                       '--extra-vars', 'version: 1.0'])
     assert result.exit_code == 1
 
+def test_cli_update_project(monkeypatch):
+
+    def mockerror(*args, **kwargs):
+        raise GuardError
+
+    def mock_cli_error(*args, **kwargs):
+        raise CLIError
+
+    def mockreturn(*args, **kwargs):
+        return 'just a test'
+
+    monkeypatch.setattr('lib.tc.Guard.get_project_id', mockreturn)
+    monkeypatch.setattr('lib.tc.Guard.update_project', mockreturn)
+    monkeypatch.setattr('lib.tc.Guard.launch_data_to_url', mockreturn)
+    monkeypatch.setattr('lib.cli.config_file', mock_config_file)
+
+    runner = CliRunner()
+    # clean execution
+    result = runner.invoke(cli_update_project, ['--project-name', 'test'])
+    assert result.exit_code == 0
+
+    # whooops! error
+    monkeypatch.setattr('lib.tc.Guard.get_project_id', mockerror)
+    result = runner.invoke(cli_update_project, ['--project-name', 'test'])
+    assert result.exit_code == 1
 
 def test_cli_monitor(monkeypatch):
 
