@@ -40,20 +40,6 @@ def basic_guard():
     return Guard(config)
 
 
-class ApiMock(object):
-    def __init__(self):
-        pass
-
-    def template_name(self):
-        return BASIC_JSON_DATA['id']
-
-    def get_template_id(self):
-        return json.load(BASIC_JSON_DATA)
-
-    def get_project_id(self):
-        return json.load(BASIC_JSON_DATA)
-
-
 class MockRequest(object):
     def __init__(self, *args, **kwargs):
         self.status_code = None
@@ -66,7 +52,7 @@ def test_guard_bad_configuration(monkeypatch):
         raise APIError
     monkeypatch.setattr('lib.api.APIv1.__init__', mockreturn)
     with pytest.raises(GuardError):
-        guard = Guard('')
+        Guard('')
 
 
 def test_get_template_id(monkeypatch):
@@ -74,8 +60,10 @@ def test_get_template_id(monkeypatch):
 
     expected_id = '1'
     fake_result = {'results': [{'id': expected_id}]}
+
     def mockreturn(self, template_name):
         return fake_result
+
     monkeypatch.setattr('lib.api.APIv1.template_data', mockreturn)
     assert guard.get_template_id('') == expected_id
 
@@ -86,11 +74,13 @@ def test_get_template_id(monkeypatch):
     with pytest.raises(GuardError):
         guard.get_template_id(template_name='')
 
+
 def test_get_project_id(monkeypatch):
     guard = basic_guard()
 
     expected_id = '1'
     fake_result = {'results': [{'id': expected_id}]}
+
     def mockreturn(self, project_name):
         return fake_result
     monkeypatch.setattr('lib.api.APIv1.project_data', mockreturn)
@@ -98,6 +88,27 @@ def test_get_project_id(monkeypatch):
 
     def mockreturn(self, project_name):
         raise APIError
+
+    monkeypatch.setattr('lib.api.APIv1.project_data', mockreturn)
+    with pytest.raises(GuardError):
+        guard.get_project_id(project_name='')
+
+    def mockreturn(self, project_name):
+        return {'results': [{'no_id': 'no_id'}]}
+
+    monkeypatch.setattr('lib.api.APIv1.project_data', mockreturn)
+    with pytest.raises(GuardError):
+        guard.get_project_id(project_name='')
+
+    def mockreturn(self, project_name):
+        return {'results': []}
+
+    monkeypatch.setattr('lib.api.APIv1.project_data', mockreturn)
+    with pytest.raises(GuardError):
+        guard.get_project_id(project_name='')
+
+    def mockreturn(self, project_name):
+        return {}
 
     monkeypatch.setattr('lib.api.APIv1.project_data', mockreturn)
     with pytest.raises(GuardError):
@@ -121,6 +132,7 @@ def test_kick(monkeypatch):
     with pytest.raises(GuardError):
         guard.kick(template_id='', extra_vars='')
 
+
 def test_update_project(monkeypatch):
     # quite a lot of changes, this test has to be updated
     guard = basic_guard()
@@ -138,6 +150,7 @@ def test_update_project(monkeypatch):
     monkeypatch.setattr('lib.api.APIv1.update_project_id', mockreturn)
     with pytest.raises(GuardError):
         guard.update_project(project_id='')
+
 
 def test_download_url():
     guard = basic_guard()

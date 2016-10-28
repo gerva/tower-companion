@@ -66,6 +66,8 @@ class Guard(object):
         try:
             data = api.project_data(project_name)
             return data['results'][0]['id']
+        except (IndexError, KeyError):
+            raise GuardError('no such project')
         except APIError as error:
             raise GuardError(error)
 
