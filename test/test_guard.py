@@ -174,14 +174,14 @@ def test_kick(monkeypatch):
         return expected_value
 
     monkeypatch.setattr('lib.api.APIv1.launch_template_id', mockreturn)
-    assert guard.kick(template_id='', extra_vars='') == expected_value
+    assert guard.kick(template_id='', extra_vars='', limit='') == expected_value
 
     def mockreturn(*args, **kwargs):
         raise APIError
 
     monkeypatch.setattr('lib.api.APIv1.launch_template_id', mockreturn)
     with pytest.raises(GuardError):
-        guard.kick(template_id='', extra_vars='')
+        guard.kick(template_id='', extra_vars='', limit='')
 
 def test_user_role(monkeypatch):
     # quite a lot of changes, this test has to be updated
@@ -292,12 +292,12 @@ def test_kick_and_monitor(monkeypatch):
     monkeypatch.setattr('lib.tc.Guard.get_template_id', mockreturn)
     monkeypatch.setattr('lib.api.APIv1.launch_data_to_url', mockreturn)
 
-    guard.kick_and_monitor(template_name='', extra_vars=[], output_format='',
-                           sleep_interval=0.0)
+    guard.kick_and_monitor(template_name='', extra_vars=[], limit='',
+                           output_format='', sleep_interval=0.0)
 
     monkeypatch.setattr('lib.tc.Guard.get_template_id', mockerror)
     with pytest.raises(GuardError):
-        guard.kick_and_monitor(template_name='', extra_vars=[],
+        guard.kick_and_monitor(template_name='', extra_vars=[], limit='',
                                output_format='', sleep_interval=0.0)
 
 

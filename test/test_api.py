@@ -223,15 +223,16 @@ def test_launch_template_id(monkeypatch):
     api = basic_api()
     monkeypatch.setattr('requests.post', mockreturn)
     api = basic_api()
-    result = api.launch_template_id(template_id='', extra_vars=['version=123',])
+    result = api.launch_template_id(template_id='', extra_vars=['version=123',],
+                                    limit='')
     assert result == json.loads(fake_text)
 
-    result = api.launch_template_id(template_id='', extra_vars='')
+    result = api.launch_template_id(template_id='', extra_vars='', limit='')
     assert result == json.loads(fake_text)
 
     monkeypatch.setattr('requests.post', mockerror)
     with pytest.raises(APIError):
-        api.launch_template_id(template_id='', extra_vars='')
+        api.launch_template_id(template_id='', extra_vars='', limit='')
 
 
 def test_update_user_role(monkeypatch):
