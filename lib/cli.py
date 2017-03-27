@@ -76,7 +76,8 @@ def extra_var_to_dict(extra_var):
 @click.option('--template-name', help='Job template name', required=True)
 @click.option('--extra-vars', help='Extra variables', type=str, default='',
               multiple=True)
-def cli_kick(template_name, extra_vars):
+@click.option('--limit', help='Limit to hosts', type=str, default='')
+def cli_kick(template_name, extra_vars, limit):
     """
     Start an ansible tower job from the command line
     """
@@ -147,11 +148,12 @@ def cli_monitor(job_id, output_format):
 @click.option('--template-name', help='Job template name', required=True)
 @click.option('--extra-vars', help='Extra variables', type=str, default='',
               multiple=True)
+@click.option('--limit', help='Limit to hosts', type=str, default='')
 @click.option('--output-format',
               type=click.Choice(['ansi', 'txt']),
               default='ansi',
               help='output format')
-def cli_kick_and_monitor(template_name, extra_vars, output_format):
+def cli_kick_and_monitor(template_name, extra_vars, output_format, limit):
     """
     Trigger an ansible tower job and monitor its execution.
     In case of error it returns a bad exit code.
