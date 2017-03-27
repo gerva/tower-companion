@@ -89,7 +89,8 @@ def cli_kick(template_name, extra_vars, limit):
         extra_v = {}
         for extra_var in extra_vars:
             extra_v.update(extra_var_to_dict(extra_var))
-        job = guard.kick(template_id=template_id, extra_vars=extra_v)
+        job = guard.kick(template_id=template_id, limit=limit,
+                         extra_vars=extra_v)
         job_url = guard.launch_data_to_url(job)
         print('Started job: {0}'.format(job_url))
     except CLIError as error:
@@ -165,6 +166,7 @@ def cli_kick_and_monitor(template_name, extra_vars, output_format, limit):
         for extra_var in extra_vars:
             extra_v.update(extra_var_to_dict(extra_var))
         guard.kick_and_monitor(template_name=template_name,
+                               limit=limit,
                                extra_vars=extra_v,
                                output_format=output_format,
                                sleep_interval=1.0)
