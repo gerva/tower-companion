@@ -64,7 +64,6 @@ class APIv1(object):
             msg = "{0} Please check your configuration.".format(msg)
             raise APIError(msg)
 
-
     def _get(self, url, params, data):
         auth = self._authentication()
         verify = self._verify_ssl()
@@ -239,7 +238,7 @@ class APIv1(object):
         """
         return self._get_data_by_name(name=name, endpoint='projects')
 
-    def launch_template_id(self, template_id, extra_vars):
+    def launch_template_id(self, template_id, extra_vars, limit):
         """
         Launch a template job
 
@@ -255,8 +254,11 @@ class APIv1(object):
         """
         url = "{0}/job_templates/{1}/launch/".format(self.api_url,
                                                      template_id)
-        extra_vars = {'extra_vars': extra_vars}
-        request = self._post(url, params={}, data=extra_vars)
+        data = {'extra_vars': extra_vars}
+        # if specified, limit this run to `limit` host(s) only
+        if limit:
+            data['limit'] = limit
+        request = self._post(url, params={}, data=data)
         return json.loads(request.text)
 
     def update_user_role(self, user_id, role_id):
