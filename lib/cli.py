@@ -239,3 +239,24 @@ def cli_ad_hoc(inventory, machine_credential, module_name,
     except GuardError as error:
         print("Execution Error: {0}".format(error))
         sys.exit(1)
+
+@click.command()
+@click.option('--username', help='User to grant permissions', required=True)
+@click.option('--template-name', help='Template to grant permissions for',
+              required=True)
+@click.option('--permission', type=click.Choice(['read', 'execute', 'admin']),
+              help='Type of permission', default='read')
+def cli_template_permissions(username, template_name, permission):
+    """
+    This sets the template permissions for a user
+    """
+    try:
+        config = Config(config_file())
+        guard = Guard(config)
+        role_id = guard.get_role_id(template_name, permission)
+        user_id = guard.get_user_id(username)
+        guard.user_role(user_id, role_id)
+        print('User {0} successfully granted {1} permissions for template {2}'.format(username, permission, template_name))
+    except GuardError as error:
+        print("Execution Error: {0}".format(error))
+        sys.exit(1)

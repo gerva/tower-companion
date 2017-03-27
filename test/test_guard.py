@@ -74,6 +74,57 @@ def test_get_template_id(monkeypatch):
     with pytest.raises(GuardError):
         guard.get_template_id(template_name='')
 
+def test_get_user_id(monkeypatch):
+    guard = basic_guard()
+
+    expected_id = '1'
+    fake_result = {'results': [{'id': expected_id}], 'count': '1'}
+    def mockreturn(self, username):
+        return fake_result
+    monkeypatch.setattr('lib.api.APIv1.user_data', mockreturn)
+    assert guard.get_user_id('') == expected_id
+
+    def mockreturn(self, username):
+        raise APIError
+    monkeypatch.setattr('lib.api.APIv1.user_data', mockreturn)
+    with pytest.raises(GuardError):
+        guard.get_user_id(username='')
+
+    fake_result = {'results': [], 'count': 0}
+    def mockreturn(self, username):
+        return fake_result
+    monkeypatch.setattr('lib.api.APIv1.user_data', mockreturn)
+    with pytest.raises(GuardError):
+        guard.get_user_id(username='')
+
+def test_get_role_id(monkeypatch):
+    guard = basic_guard()
+
+    expected_id = '1'
+    permission = 'Admin'
+    resource_type = 'job template'
+    resource_name = 'CoolerJOb'
+    fake_result = {'results':
+                    [{'id': expected_id,
+                      'name': permission,
+                      'summary_fields':
+                        {'resource_type': resource_type,
+                          'resource_name': resource_name}
+                        }
+                    ]}
+    def mockreturn(self):
+        return fake_result
+    monkeypatch.setattr('lib.api.APIv1.role_data', mockreturn)
+    assert guard.get_role_id(resource_name, permission) == expected_id
+
+    with pytest.raises(GuardError):
+        guard.get_role_id(resource_name, 'GibtsNicht')
+
+    def mockreturn(self):
+        raise APIError
+    monkeypatch.setattr('lib.api.APIv1.role_data', mockreturn)
+    with pytest.raises(GuardError):
+        guard.get_role_id(resource_name, '')
 
 def test_get_project_id(monkeypatch):
     guard = basic_guard()
@@ -120,10 +171,10 @@ def test_kick(monkeypatch):
     expected_value = 'kick'
 
     def mockreturn(*args, **kwargs):
-        expected_value
+        return expected_value
 
     monkeypatch.setattr('lib.api.APIv1.launch_template_id', mockreturn)
-    guard.kick(template_id='', extra_vars='')
+    assert guard.kick(template_id='', extra_vars='') == expected_value
 
     def mockreturn(*args, **kwargs):
         raise APIError
@@ -132,6 +183,22 @@ def test_kick(monkeypatch):
     with pytest.raises(GuardError):
         guard.kick(template_id='', extra_vars='')
 
+def test_user_role(monkeypatch):
+    # quite a lot of changes, this test has to be updated
+    guard = basic_guard()
+    expected_value = 'user_role'
+
+    def mockreturn(*args, **kwargs):
+        return expected_value
+
+    monkeypatch.setattr('lib.api.APIv1.update_user_role', mockreturn)
+    assert guard.user_role(user_id='', role_id='') == expected_value
+
+    def mockreturn(*args, **kwargs):
+        raise APIError
+    monkeypatch.setattr('lib.api.APIv1.update_user_role', mockreturn)
+    with pytest.raises(GuardError):
+        guard.user_role(user_id='', role_id='')
 
 def test_update_project(monkeypatch):
     # quite a lot of changes, this test has to be updated

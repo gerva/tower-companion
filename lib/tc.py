@@ -38,7 +38,7 @@ class Guard(object):
             template_name (str): the name of template
 
         Retruns:
-            (str): template id if found
+            (int): template id if found
 
         Raises:
             GuardError
@@ -46,6 +46,63 @@ class Guard(object):
         api = self.api
         try:
             data = api.template_data(template_name)
+            return data['results'][0]['id']
+        except APIError as error:
+            raise GuardError(error)
+
+    def get_role_id(self, template_name, permission):
+        """
+        Returns a role id from a template permission combination
+        Args:
+            template_id (int): the id of the template
+            permission (str): permission for the role
+
+        Retruns:
+            (int): role id if found
+
+        Raises:
+            GuardError
+        """
+        api = self.api
+        try:
+            data = api.role_data()
+            # now iterate through all roles and search for the right combination of template id and permission
+            for role in data['results']:
+                role_type = role['name'].lower()
+                resource_type = role['summary_fields'].get('resource_type')
+                resource_name = role['summary_fields'].get('resource_name')
+                if ((resource_type) and
+                    (resource_name) and
+                    (role_type.lower() == permission.lower()) and
+                    (resource_type.lower() == 'job template') and
+                    (resource_name.lower() == template_name.lower())):
+                    return role['id']
+            # if we are here, we didnt find any suitable role
+            msg = "No role found for template '{0}' ".format(template_name)
+            msg = "{0}with permissions {1}. ".format(msg, permission)
+            msg = "{0}Please make sure that a suitable role exists".format(msg)
+            raise GuardError(msg)
+        except APIError as error:
+            raise GuardError(error)
+
+    def get_user_id(self, username):
+        """
+        Returns a user id from a username
+        Args:
+            username (str): the name of the user
+
+        Retruns:
+            (int): user id if found
+
+        Raises:
+            GuardError
+        """
+        api = self.api
+        try:
+            data = api.user_data(username)
+            if data['count'] == 0:
+                msg = "No user '{0}' found".format(username)
+                raise GuardError(msg)
             return data['results'][0]['id']
         except APIError as error:
             raise GuardError(error)
@@ -201,6 +258,23 @@ class Guard(object):
         except APIError as error:
             raise GuardError(error)
 
+    def user_role(self, user_id, role_id):
+        """
+        Adds a role to a user in ansible tower
+
+        Args:
+            user_id (int): id of the user which should be granted permissions
+            role_id (int): id of the role to set for this user
+
+        Returns:
+            job_id (int): id of the triggered job
+        """
+        api = self.api
+        try:
+            return api.update_user_role(user_id, role_id)
+        except APIError as error:
+            raise GuardError(error)
+
     def ad_hoc(self, ad_hoc):
         """
         Starts a ad hoc job in ansible tower
@@ -208,7 +282,6 @@ class Guard(object):
             ad_hoc (AdHoc): Inventory to run on
         Returns:
             job_id (int): id of the triggered job
-
         """
         api = self.api
         try:

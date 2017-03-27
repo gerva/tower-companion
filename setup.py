@@ -109,6 +109,7 @@ setup(
             'kick=lib.cli:cli_kick',
             'ad_hoc_and_monitor=lib.cli:cli_ad_hoc_and_monitor',
             'ad_hoc=lib.cli:cli_ad_hoc',
+            'template_permissions=lib.cli:cli_template_permissions',
             'update_project=lib.cli:cli_update_project'
         ],
     },

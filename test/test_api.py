@@ -234,6 +234,25 @@ def test_launch_template_id(monkeypatch):
         api.launch_template_id(template_id='', extra_vars='')
 
 
+def test_update_user_role(monkeypatch):
+    expected_id = 23
+    fake_text = json.dumps({'results': [{'id': expected_id}]})
+
+    def mockreturn(*args, **kwargs):
+        mock = MockRequest()
+        mock.text = fake_text
+        mock.status_code = 204
+        return mock
+
+    def mockerror(*args, **kwargs):
+        raise APIError
+
+    api = basic_api()
+    monkeypatch.setattr('requests.post', mockreturn)
+    result = api.update_user_role(user_id='23', role_id=['42',])
+    assert result.status_code == 204
+
+
 def test_update_project_id(monkeypatch):
     expected_id = 123
     fake_text = json.dumps({'results': [{'id': expected_id}]})
@@ -242,6 +261,7 @@ def test_update_project_id(monkeypatch):
         mock = MockRequest()
         mock.text = fake_text
         mock.status_code = 200
+        mock.reason = "This failed"
         return mock
 
     def mockerror(*args, **kwargs):
@@ -256,6 +276,7 @@ def test_update_project_id(monkeypatch):
     monkeypatch.setattr('requests.post', mockerror)
     with pytest.raises(APIError):
         api.update_project_id(project_id='')
+
 
 def test_launch_data_to_url():
     api = basic_api()
@@ -355,6 +376,8 @@ def test_get_data(monkeypatch):
 
     monkeypatch.setattr('requests.get', mockreturn)
     assert api.template_data(name='') == json.loads(fake_text)
+    assert api.role_data() == json.loads(fake_text)
+    assert api.user_data(username='') == json.loads(fake_text)
     assert api.project_data(name='') == json.loads(fake_text)
     assert api.inventory_data(name='') == json.loads(fake_text)
     assert api.credentials_data(name='') == json.loads(fake_text)

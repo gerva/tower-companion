@@ -7,7 +7,7 @@ from click.testing import CliRunner
 from lib.tc import GuardError
 from lib.cli import cli_kick, cli_monitor, DEFAULT_CONFIGURATION, config_file
 from lib.cli import cli_kick_and_monitor, cli_ad_hoc_and_monitor, cli_ad_hoc
-from lib.cli import cli_update_project
+from lib.cli import cli_template_permissions, cli_update_project
 from lib.cli import extra_var_to_dict, CLIError
 
 
@@ -219,4 +219,38 @@ def test_cli_ad_hoc(monkeypatch):
     monkeypatch.setattr('lib.tc.Guard.ad_hoc', mockerror)
     monkeypatch.setattr('lib.api.APIv1.launch_ad_hoc', mockerror)
     result = runner.invoke(cli_ad_hoc, args)
+    assert result.exit_code == 1
+
+def test_cli_template_permissions(monkeypatch):
+
+    def mockerror(*args, **kwargs):
+        raise GuardError
+
+    def mockreturn(*args, **kwargs):
+        return {'results': [], 'url': 'test', 'id': 'test'}
+
+    def mock_user_id(*args, **kwargs):
+        return '23'
+
+    def mock_role_id(*args, **kwargs):
+        return '42'
+
+
+    monkeypatch.setattr('lib.tc.Guard.user_role', mockreturn)
+    monkeypatch.setattr('lib.tc.Guard.get_user_id', mock_user_id)
+    monkeypatch.setattr('lib.tc.Guard.get_role_id', mock_role_id)
+    monkeypatch.setattr('lib.cli.config_file', mock_config_file)
+
+    runner = CliRunner()
+    args = ['--username', 'hans',
+            '--template-name', 'wurst',
+            '--permission', 'admin']
+    # clean execution
+    result = runner.invoke(cli_template_permissions, args)
+    assert result.exit_code == 0
+
+    # error!
+    monkeypatch.setattr('lib.tc.Guard.user_role', mockerror)
+    monkeypatch.setattr('lib.api.APIv1.update_user_role', mockerror)
+    result = runner.invoke(cli_template_permissions, args)
     assert result.exit_code == 1

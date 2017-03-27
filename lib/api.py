@@ -21,6 +21,7 @@ class APIv1(object):
     """
     APIv1
     """
+    LONG_PAGING = 10000
     # pylint: disable=E1101
     # disables:
     # E: Instance of 'LookupDict' has no 'ok' member (no-member)
@@ -81,7 +82,9 @@ class APIv1(object):
         headers = {'Content-type': 'application/json'}
         request = requests.post(url, auth=auth, verify=verify, params=params,
                                 data=json.dumps(data), headers=headers)
-        if request.status_code in (requests.codes.ok, requests.codes.created,
+        if request.status_code in (requests.codes.ok,
+                                   requests.codes.created,
+                                   requests.codes.no_content,
                                    requests.codes.accepted):
             return request
         else:
@@ -130,7 +133,7 @@ class APIv1(object):
         return request
 
     def _get_id(self, name, endpoint):
-        result = self._get_data(name=name, endpoint=endpoint)
+        result = self._get_data_by_name(name=name, endpoint=endpoint)
         count = result['count']
         if result['count'] == 1:
             return result['results'][0]['id']
@@ -141,7 +144,24 @@ class APIv1(object):
             msg = 'Multiple id related to "{0}"'.format(name)
         raise APIError(msg)
 
-    def _get_data(self, name, endpoint):
+    def _get_data(self, endpoint, params):
+        """
+        Returns a json object with data
+
+        Args:
+            endpoint (str): name of endpoint to request
+            params (dict): dictionary of parameter
+
+        Returns:
+            (json object)
+
+        Raises:
+            APIError
+        """
+        url = "{0}/{1}/".format(self.api_url, endpoint)
+        return self._get_json(url, params=params)
+
+    def _get_data_by_name(self, name, endpoint):
         """
         Returns a json object with data about name
 
@@ -154,9 +174,8 @@ class APIv1(object):
         Raises:
             APIError
         """
-        url = "{0}/{1}/".format(self.api_url, endpoint)
         params = {'name': name}
-        return self._get_json(url, params=params)
+        return self._get_data(endpoint=endpoint, params=params)
 
     def template_data(self, name):
         """
@@ -171,7 +190,39 @@ class APIv1(object):
         Raises:
             APIError
         """
-        return self._get_data(name=name, endpoint='job_templates')
+        return self._get_data_by_name(name=name, endpoint='job_templates')
+
+    def role_data(self):
+        """
+        Returns a json object with data about all roles
+
+        Args:
+            name (str): name of the template
+
+        Returns:
+            (json object)
+
+        Raises:
+            APIError
+        """
+        params = {'page_size': self.LONG_PAGING}
+        return self._get_data(endpoint='roles', params=params)
+
+    def user_data(self, username):
+        """
+        Returns a json object with data about the user
+
+        Args:
+            username (str): name of the user
+
+        Returns:
+            (json object)
+
+        Raises:
+            APIError
+        """
+        params = {'username': username}
+        return self._get_data(endpoint='users', params=params)
 
     def project_data(self, name):
         """
@@ -186,7 +237,7 @@ class APIv1(object):
         Raises:
             APIError
         """
-        return self._get_data(name=name, endpoint='projects')
+        return self._get_data_by_name(name=name, endpoint='projects')
 
     def launch_template_id(self, template_id, extra_vars):
         """
@@ -207,6 +258,24 @@ class APIv1(object):
         extra_vars = {'extra_vars': extra_vars}
         request = self._post(url, params={}, data=extra_vars)
         return json.loads(request.text)
+
+    def update_user_role(self, user_id, role_id):
+        """
+        Adds a role to a user
+
+        Params:
+            user_id (int): id of the user which should be granted permissions
+            role_id (int): id of the role to set for this user
+
+        Returns:
+            (str): id of the started job
+
+        Raises:
+            APIError
+        """
+        url = "{0}/users/{1}/roles/".format(self.api_url, user_id)
+        role_data = {'id': role_id}
+        return self._post(url, params={}, data=role_data)
 
     def update_project_id(self, project_id):
         """
@@ -348,7 +417,7 @@ class APIv1(object):
         Raises:
             APIError
         """
-        return self._get_data(name=name, endpoint='inventories')
+        return self._get_data_by_name(name=name, endpoint='inventories')
 
     def inventory_id(self, name):
         """
@@ -375,7 +444,7 @@ class APIv1(object):
         Raises:
             APIError
         """
-        return self._get_data(name=name, endpoint='credentials')
+        return self._get_data_by_name(name=name, endpoint='credentials')
 
     def credential_id(self, name):
         """
