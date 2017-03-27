@@ -143,7 +143,7 @@ class Guard(object):
         except APIError as error:
             raise GuardError(error)
 
-    def kick(self, template_id, extra_vars):
+    def kick(self, template_id, extra_vars, limit):
         """
         Starts a job in ansible tower
         Args:
@@ -154,7 +154,7 @@ class Guard(object):
             GuardError
         """
         try:
-            return self.api.launch_template_id(template_id, extra_vars)
+            return self.api.launch_template_id(template_id, extra_vars, limit)
         except APIError as error:
             raise GuardError(error)
 
@@ -218,7 +218,7 @@ class Guard(object):
             msg = 'job id {0}: ended with errors'.format(job_url)
             raise GuardError(msg)
 
-    def kick_and_monitor(self, template_name, extra_vars, output_format,
+    def kick_and_monitor(self, template_name, extra_vars, limit, output_format,
                          sleep_interval=SLEEP_INTERVAL):
         """
         Starts a job and monitors its execution
@@ -227,12 +227,13 @@ class Guard(object):
             template_name (str): Name of the template
             extra_vars (list|tuple): extra variables
             output_format (str): output format
+            limit (str): limit to the following hosts
         Raises:
             GuardError
         """
         try:
             template_id = self.get_template_id(template_name)
-            job = self.kick(template_id, extra_vars)
+            job = self.kick(template_id, extra_vars, limit)
             job_url = self.launch_data_to_url(job)
             self.monitor(job_url, output_format, sleep_interval)
         except APIError as error:
