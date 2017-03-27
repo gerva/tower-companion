@@ -137,8 +137,7 @@ def cli_monitor(job_id, output_format):
         config = Config(config_file())
         guard = Guard(config)
         guard.monitor(job_url=guard.job_url(job_id),
-                      output_format=output_format,
-                      sleep_interval=1.0)
+                      output_format=output_format)
     except GuardError as error:
         msg = 'Error monitoring job id: {0} - {1}'.format(job_id, error)
         print(msg)
@@ -168,8 +167,7 @@ def cli_kick_and_monitor(template_name, extra_vars, output_format, limit):
         guard.kick_and_monitor(template_name=template_name,
                                limit=limit,
                                extra_vars=extra_v,
-                               output_format=output_format,
-                               sleep_interval=1.0)
+                               output_format=output_format)
     except CLIError as error:
         print(error)
         sys.exit(1)
@@ -208,8 +206,7 @@ def cli_ad_hoc_and_monitor(inventory, machine_credential, module_name,
         adhoc.become = become
         config = Config(config_file())
         guard = Guard(config)
-        guard.ad_hoc_and_monitor(adhoc, output_format=output_format,
-                                 sleep_interval=1.0)
+        guard.ad_hoc_and_monitor(adhoc, output_format=output_format)
     except GuardError as error:
         print("Execution Error: {0}".format(error))
         sys.exit(1)
