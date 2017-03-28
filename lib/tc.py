@@ -24,8 +24,9 @@ class Guard(object):
     Your belowed tower house keeper. It just need a configuration object
     and it will do all the dirty job for you.
     """
-    def __init__(self, config):
+    def __init__(self, config, sleep_interval=SLEEP_INTERVAL):
         self.config = config
+        self.sleep_interval = sleep_interval
         try:
             self.api = APIv1(config)
         except APIError as error:
@@ -72,10 +73,10 @@ class Guard(object):
                 resource_type = role['summary_fields'].get('resource_type')
                 resource_name = role['summary_fields'].get('resource_name')
                 if ((resource_type) and
-                    (resource_name) and
-                    (role_type.lower() == permission.lower()) and
-                    (resource_type.lower() == 'job template') and
-                    (resource_name.lower() == template_name.lower())):
+                        (resource_name) and
+                        (role_type.lower() == permission.lower()) and
+                        (resource_type.lower() == 'job template') and
+                        (resource_name.lower() == template_name.lower())):
                     return role['id']
             # if we are here, we didnt find any suitable role
             msg = "No role found for template '{0}' ".format(template_name)
@@ -143,7 +144,7 @@ class Guard(object):
         except APIError as error:
             raise GuardError(error)
 
-    def kick(self, template_id, extra_vars):
+    def kick(self, template_id, extra_vars, limit):
         """
         Starts a job in ansible tower
         Args:
@@ -154,7 +155,7 @@ class Guard(object):
             GuardError
         """
         try:
-            return self.api.launch_template_id(template_id, extra_vars)
+            return self.api.launch_template_id(template_id, extra_vars, limit)
         except APIError as error:
             raise GuardError(error)
 
@@ -174,14 +175,12 @@ class Guard(object):
         return 'https://{0}/api/v1/ad_hoc_commands/{1}/stdout/?format={2}'.format(
             host, job_id, output_format)
 
-    def monitor(self, job_url, output_format, sleep_interval=SLEEP_INTERVAL):
+    def monitor(self, job_url, output_format):
         """
         Monitor the execution of a job stdout endpoint
         Args:
             job_url (str): job url
             output_format (str): text, ansi, ...
-            sleep_interval (float): number of seconds between two consecutive
-                calls to stdout endpoint
         Raises:
             GuardError
         """
@@ -197,7 +196,7 @@ class Guard(object):
                 # get the current status from the API point
                 output = api.job_stdout(job_url, output_format)
                 # take a nap
-                sleep(sleep_interval)
+                sleep(self.sleep_interval)
                 # we just want to display the lines that have not been printed
                 # yet
                 print_me = output.replace(prev_output, '').strip()
@@ -218,8 +217,7 @@ class Guard(object):
             msg = 'job id {0}: ended with errors'.format(job_url)
             raise GuardError(msg)
 
-    def kick_and_monitor(self, template_name, extra_vars, output_format,
-                         sleep_interval=SLEEP_INTERVAL):
+    def kick_and_monitor(self, template_name, extra_vars, limit, output_format):
         """
         Starts a job and monitors its execution
 
@@ -227,14 +225,15 @@ class Guard(object):
             template_name (str): Name of the template
             extra_vars (list|tuple): extra variables
             output_format (str): output format
+            limit (str): limit to the following hosts
         Raises:
             GuardError
         """
         try:
             template_id = self.get_template_id(template_name)
-            job = self.kick(template_id, extra_vars)
+            job = self.kick(template_id, extra_vars, limit)
             job_url = self.launch_data_to_url(job)
-            self.monitor(job_url, output_format, sleep_interval)
+            self.monitor(job_url, output_format)
         except APIError as error:
             raise GuardError(error)
 
@@ -290,7 +289,7 @@ class Guard(object):
         except APIError as error:
             raise GuardError(error)
 
-    def wait_for_job_to_start(self, job_id, sleep_interval=SLEEP_INTERVAL):
+    def wait_for_job_to_start(self, job_id):
         """
         Ad hoc jobs to not start immediatly, we need to call the api few times
         before the job gets started. This method blocks the execution of monitor
@@ -298,28 +297,24 @@ class Guard(object):
 
         Args:
             job_id (AdHoc): ad hoc object
-            sleep_interval (float): how long to wait before calling the api
-                again and get any new output text
         """
         api = self.api
         started = False
         try:
             job_url = api.job_url(job_id)
             while not started:
-                sleep(sleep_interval)
+                sleep(self.sleep_interval)
                 started = api.job_started(job_url)
         except APIError as error:
             raise GuardError(error)
 
-    def ad_hoc_and_monitor(self, ad_hoc, output_format, sleep_interval=SLEEP_INTERVAL):
+    def ad_hoc_and_monitor(self, ad_hoc, output_format):
         """
         Starts an ad hoc job and outputs the job output on stdout
 
         Args:
             ad_hoc (AdHoc): ad hoc object
             output_format (str): output format, it can be ansi or txt
-            sleep_interval (float): how long to wait before calling the api
-                again and get any new output text
         Raises:
             GuardError
         """
@@ -327,9 +322,8 @@ class Guard(object):
         job_url = self.launch_data_to_url(job)
         job_id = job['id']
         # wait for job to be started
-        self.wait_for_job_to_start(job_id, sleep_interval)
-        self.monitor(job_url, output_format=output_format,
-                        sleep_interval=sleep_interval)
+        self.wait_for_job_to_start(job_id)
+        self.monitor(job_url, output_format=output_format)
 
     def job_url(self, job_id):
         """

@@ -358,7 +358,7 @@ example:
 ### <a name="template_permissions"></a>
 template_permissions
 ----------------
-You use this template_permissions functionality, if you want to grand
+You use this template_permissions functionality, if you want to grant
 permissions to a user for a specific job-template
 
 Params:

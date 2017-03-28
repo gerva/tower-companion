@@ -37,7 +37,7 @@ def basic_guard():
     config.update('password', PASSWORD)
     config.update('host', HOST)
     config.update('verify_ssl', "True")
-    return Guard(config)
+    return Guard(config, sleep_interval=0.0)
 
 
 class MockRequest(object):
@@ -174,14 +174,14 @@ def test_kick(monkeypatch):
         return expected_value
 
     monkeypatch.setattr('lib.api.APIv1.launch_template_id', mockreturn)
-    assert guard.kick(template_id='', extra_vars='') == expected_value
+    assert guard.kick(template_id='', extra_vars='', limit='') == expected_value
 
     def mockreturn(*args, **kwargs):
         raise APIError
 
     monkeypatch.setattr('lib.api.APIv1.launch_template_id', mockreturn)
     with pytest.raises(GuardError):
-        guard.kick(template_id='', extra_vars='')
+        guard.kick(template_id='', extra_vars='', limit='')
 
 def test_user_role(monkeypatch):
     # quite a lot of changes, this test has to be updated
@@ -263,18 +263,18 @@ def test_monitor(monkeypatch):
     monkeypatch.setattr('lib.api.APIv1.job_status', mock_status_ok)
 
     guard = basic_guard()
-    guard.monitor(job_url='', output_format='', sleep_interval=0.0)
+    guard.monitor(job_url='', output_format='')
 
     # simulate an error received from the API
     monkeypatch.setattr('lib.api.APIv1.job_finished', mockerror)
     with pytest.raises(GuardError):
-        guard.monitor(job_url='', output_format='', sleep_interval=0.0)
+        guard.monitor(job_url='', output_format='')
 
     # job finished with errors
     monkeypatch.setattr('lib.api.APIv1.job_finished', mock_finished)
     monkeypatch.setattr('lib.api.APIv1.job_status', mock_status_failed)
     with pytest.raises(GuardError):
-        guard.monitor(job_url='', output_format='', sleep_interval=0.0)
+        guard.monitor(job_url='', output_format='')
 
 
 def test_kick_and_monitor(monkeypatch):
@@ -292,13 +292,13 @@ def test_kick_and_monitor(monkeypatch):
     monkeypatch.setattr('lib.tc.Guard.get_template_id', mockreturn)
     monkeypatch.setattr('lib.api.APIv1.launch_data_to_url', mockreturn)
 
-    guard.kick_and_monitor(template_name='', extra_vars=[], output_format='',
-                           sleep_interval=0.0)
+    guard.kick_and_monitor(template_name='', extra_vars=[], limit='',
+                           output_format='')
 
     monkeypatch.setattr('lib.tc.Guard.get_template_id', mockerror)
     with pytest.raises(GuardError):
-        guard.kick_and_monitor(template_name='', extra_vars=[],
-                               output_format='', sleep_interval=0.0)
+        guard.kick_and_monitor(template_name='', extra_vars=[], limit='',
+                               output_format='')
 
 
 def test_ad_hoc(monkeypatch):
@@ -342,11 +342,11 @@ def test_wait_for_job_to_start(monkeypatch):
     monkeypatch.setattr('lib.api.APIv1.job_info', mockreturn)
     monkeypatch.setattr('lib.api.APIv1.job_started', mock_job_started)
     guard = basic_guard()
-    guard.wait_for_job_to_start(job_id='', sleep_interval=0.0)
+    guard.wait_for_job_to_start(job_id='')
 
     monkeypatch.setattr('lib.api.APIv1.job_url', mockerror)
     with pytest.raises(GuardError):
-        guard.wait_for_job_to_start(job_id='', sleep_interval=0.0)
+        guard.wait_for_job_to_start(job_id='')
 
 
 def test_ad_hoc_and_monitor(monkeypatch):
@@ -370,16 +370,16 @@ def test_ad_hoc_and_monitor(monkeypatch):
 
     guard = basic_guard()
     ad_hoc = AdHoc()
-    guard.ad_hoc_and_monitor(ad_hoc, output_format='any', sleep_interval=0.0)
+    guard.ad_hoc_and_monitor(ad_hoc, output_format='any')
 
     monkeypatch.setattr('lib.tc.Guard.ad_hoc', mock_guard_error)
     with pytest.raises(GuardError):
-        guard.ad_hoc_and_monitor(ad_hoc, output_format='any', sleep_interval=0.0)
+        guard.ad_hoc_and_monitor(ad_hoc, output_format='any')
 
     monkeypatch.setattr('lib.tc.Guard.ad_hoc', mock_launch)
     monkeypatch.setattr('lib.api.APIv1.launch_data_to_url', mock_api_error)
     with pytest.raises(GuardError):
-        guard.ad_hoc_and_monitor(ad_hoc, output_format='any', sleep_interval=0.0)
+        guard.ad_hoc_and_monitor(ad_hoc, output_format='any')
 
 
 def test_job_url(monkeypatch):
