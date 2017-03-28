@@ -254,10 +254,7 @@ class APIv1(object):
         """
         url = "{0}/job_templates/{1}/launch/".format(self.api_url,
                                                      template_id)
-        data = {'extra_vars': extra_vars}
-        # if specified, limit this run to `limit` host(s) only
-        if limit:
-            data['limit'] = limit
+        data = {'limit': limit, 'extra_vars': extra_vars}
         request = self._post(url, params={}, data=data)
         return json.loads(request.text)
 
