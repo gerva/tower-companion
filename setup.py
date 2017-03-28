@@ -43,7 +43,7 @@ class Tox(TestCommand):
 setup(
     name='tower-companion',
 
-    version='0.1.6',
+    version='0.1.7',
     description='tower companion',
     long_description=long_description,
 

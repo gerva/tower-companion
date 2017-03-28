@@ -1,3 +1,10 @@
+## 2017-03-28 0.1.7
+
+* Set user permissions for a template (michaelgaida) #41
+* Implemented the project update job (michaelgaida) #35
+* Allow to specify --limit on kick and kick_and_monitor calls (gerva) #45
+
+
 ## 2016-10-26 0.1.6
 
 * Cannot trigger jobs which require --extra-vars #27

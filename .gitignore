@@ -12,3 +12,4 @@ tower_companion.egg-info/
 .eggs/
 .tox/
 htmlcov-py*/
+venv/*
