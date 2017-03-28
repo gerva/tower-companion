@@ -73,10 +73,10 @@ class Guard(object):
                 resource_type = role['summary_fields'].get('resource_type')
                 resource_name = role['summary_fields'].get('resource_name')
                 if ((resource_type) and
-                    (resource_name) and
-                    (role_type.lower() == permission.lower()) and
-                    (resource_type.lower() == 'job template') and
-                    (resource_name.lower() == template_name.lower())):
+                        (resource_name) and
+                        (role_type.lower() == permission.lower()) and
+                        (resource_type.lower() == 'job template') and
+                        (resource_name.lower() == template_name.lower())):
                     return role['id']
             # if we are here, we didnt find any suitable role
             msg = "No role found for template '{0}' ".format(template_name)
